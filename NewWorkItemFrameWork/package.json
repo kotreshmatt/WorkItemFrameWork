@@ -5,17 +5,20 @@
   "main": "index.js",
   "directories": {
     "doc": "docs",
-    "test": "tests"
+    "test": "jest --config jest.config.js"
   },
   "scripts": {
-     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
   }
 }

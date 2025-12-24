@@ -10,7 +10,7 @@
     "module": "ESNext",
     "target": "ES2020",
     "moduleResolution": "Node",
-    "types": [],
+    "types": ["jest"],
     "outDir": "./dist", // Output compiled files to the "dist" folder
     "rootDir": "./", 
     // For nodejs:
