@@ -20,24 +20,24 @@ export class WorkItemCommandValidationService {
     private readonly idempotencyValidator: IdempotencyValidator
   ) {}
 
-  validate(context: ValidationContext): ValidationResult {
+  async validate(context: ValidationContext): Promise<ValidationResult> {
 
     // 1. Lifecycle validity
     const lifecycleResult = this.lifecycleValidator.validate(
-      Object.values(context.workItem.state.constructor),
-      context.workItem.state
+      [context.workItem.state],
+      context.targetState
     );
-    if (!lifecycleResult.valid) return lifecycleResult;
+    if (!(await lifecycleResult).valid) return lifecycleResult;
 
     // 2. State transition
-    const stateResult = this.stateValidator.validate(
+    const stateResult = await this.stateValidator.validate(
       context.workItem.state,
       context.targetState
     );
     if (!stateResult.valid) return stateResult;
 
     // 3. Authorization
-    const authResult = this.authValidator.validate(
+    const authResult = await this.authValidator.validate(
       context.actorId,
       context.workItem.assigneeId
     );
@@ -46,17 +46,19 @@ export class WorkItemCommandValidationService {
     // 4. Assignment eligibility (only when claiming)
     if (context.targetState === 'CLAIMED') {
       const assignmentResult =
-        this.assignmentValidator.validate(
-          context.actorId,
-          context.workItem.assignmentSpec
+        await this.assignmentValidator.validate(
+          context.workItem,
+          context.actorId
         );
-      if (!assignmentResult.valid) return assignmentResult;
+        if (!assignmentResult.valid) {
+          return assignmentResult;
+        }
     }
 
     // 5. Parameters
     if (context.parameters) {
       const paramResult =
-        this.parameterValidator.validateRequired(
+        await this.parameterValidator.validateRequired(
           context.parameters,
           [] // schema resolved later (Phase 3)
         );
@@ -66,7 +68,7 @@ export class WorkItemCommandValidationService {
     // 6. Idempotency
     if (context.idempotent !== undefined) {
       const idempotencyResult =
-        this.idempotencyValidator.validate(context.idempotent);
+        await this.idempotencyValidator.validate(context.idempotent);
       if (!idempotencyResult.valid) return idempotencyResult;
     }
 

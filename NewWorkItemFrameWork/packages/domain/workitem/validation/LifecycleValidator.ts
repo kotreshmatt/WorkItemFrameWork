@@ -3,10 +3,10 @@ import { ValidationResult } from './ValidationResult';
 
 export class LifecycleValidator {
 
-  validate(
+  async validate(
     lifecycleStates: WorkItemState[],
     current: WorkItemState
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
 
     return lifecycleStates.includes(current)
       ? ValidationResult.ok()

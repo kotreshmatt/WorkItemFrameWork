@@ -12,19 +12,33 @@ import {
     LifecycleValidator, 
     IdempotencyValidator 
   } from '../../../../../packages/domain/workitem/validation/index';
+import { InMemoryOrgModelRepository } from '../../../../../packages/domain/Repository/InMemoryOrgModelrespository';
 
 describe('WorkItemCommandValidationService', () => {
 
   const service = new WorkItemCommandValidationService(
     new StateTransitionValidator(),
     new AuthorizationValidator(),
-    new AssignmentEligibilityValidator(),
+    new AssignmentEligibilityValidator(new InMemoryOrgModelRepository(
+      // OrgUnits
+      {
+        OU1: { id: 'OU1', name: 'Finance' }
+      },
+      // Positions by OrgUnit
+      {
+        OU1: [{ id: 'P1', name: 'Manager', orgUnitId: 'user1' }]
+      },
+      // Groups by User
+      {
+        user1: [{ id: 'G1', name: 'Managers' }]
+      }
+    )),
     new ParameterValidator(),
     new LifecycleValidator(),
     new IdempotencyValidator()
   );
 
-  it('should pass validation for valid claim', () => {
+  it('should pass validation for valid claim', async () => {
     const wi = new WorkItem(
       { get: () => 1 } as any,
       'TASK',
@@ -39,7 +53,7 @@ describe('WorkItemCommandValidationService', () => {
       WorkItemState.ACTIVE
     );
 
-    const result = service.validate({
+    const result = await service.validate({
       workItem: wi,
       actorId: 'user1',
       targetState: WorkItemState.CLAIMED
@@ -48,7 +62,7 @@ describe('WorkItemCommandValidationService', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('should fail on invalid transition', () => {
+  it('should fail on invalid transition', async () => {
     const wi = new WorkItem(
       { get: () => 1 } as any,
       'TASK',
@@ -62,7 +76,7 @@ describe('WorkItemCommandValidationService', () => {
       WorkItemState.NEW
     );
 
-    const result = service.validate({
+    const result = await service.validate({
       workItem: wi,
       actorId: 'user1',
       targetState: WorkItemState.COMPLETED
@@ -71,7 +85,7 @@ describe('WorkItemCommandValidationService', () => {
     expect(result.valid).toBe(false);
   });
 
-  it('should fail on unauthorized actor', () => {
+  it('should fail on unauthorized actor', async () => {
     const wi = new WorkItem(
       { get: () => 1 } as any,
       'TASK',
@@ -87,7 +101,7 @@ describe('WorkItemCommandValidationService', () => {
 
     (wi as any)._assigneeId = 'user1';
 
-    const result = service.validate({
+    const result = await service.validate({
       workItem: wi,
       actorId: 'user2',
       targetState: WorkItemState.COMPLETED

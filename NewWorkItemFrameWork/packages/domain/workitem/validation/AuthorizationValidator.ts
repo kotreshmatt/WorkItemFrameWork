@@ -2,10 +2,10 @@ import { ValidationResult } from './ValidationResult';
 
 export class AuthorizationValidator {
 
-  validate(
+  async validate(
     actorId: string,
     assigneeId?: string
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
 
     if (!assigneeId) {
       return ValidationResult.ok(); // unassigned work item

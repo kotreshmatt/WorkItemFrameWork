@@ -6,7 +6,7 @@ import { TransitionResolver } from
   '../../../../../packages/domain/workitem/Lifecycle/TransitionResolver';
 
   const resolver: TransitionResolver = {
-    resolve: jest.fn((from, to) => {
+    isAllowed: jest.fn((from, to) => {
       if (from === WorkItemState.ACTIVE && to === WorkItemState.CLAIMED) {
         return true;
       }
@@ -23,7 +23,7 @@ import { TransitionResolver } from
   
     it('allows valid transition', () => {
       expect(() =>
-        engine.canTransition(
+        engine.assertTransition(
           WorkItemState.ACTIVE,
           WorkItemState.CLAIMED
         )
@@ -32,7 +32,7 @@ import { TransitionResolver } from
   
     it('rejects invalid transition', () => {
       expect(() =>
-        engine.canTransition(
+        engine.assertTransition(
           WorkItemState.NEW,
           WorkItemState.COMPLETED
         )

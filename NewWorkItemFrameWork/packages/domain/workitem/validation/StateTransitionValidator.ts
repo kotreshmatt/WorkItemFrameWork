@@ -4,10 +4,10 @@ import { ValidationResult } from './ValidationResult';
 
 export class StateTransitionValidator {
 
-  validate(
+  async validate(
     current: WorkItemState,
     target: WorkItemState
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
 
     const allowed = AllowedTransitions[current] ?? [];
 

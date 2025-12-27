@@ -1,16 +1,17 @@
-import { WorkItemState } from '../WorkItemState';
 import { TransitionResolver } from './TransitionResolver';
+import { DefaultTransitionResolver } from './DefaultTransitionResolver';
+import { WorkItemState } from '../WorkItemState';
 
 export class LifecycleEngine {
+  private readonly resolver: TransitionResolver;
 
-  constructor(
-    private readonly resolver: TransitionResolver
-  ) {}
+  constructor(resolver?: TransitionResolver) {
+    this.resolver = resolver ?? new DefaultTransitionResolver();
+  }
 
-  canTransition(
-    from: WorkItemState,
-    to: WorkItemState
-  ): boolean {
-    return this.resolver.resolve(from, to);
+  assertTransition(from: WorkItemState, to: WorkItemState): void {
+    if (!this.resolver.isAllowed(from, to)) {
+      throw new Error(`Invalid lifecycle transition: ${from} → ${to}`);
+    }
   }
 }

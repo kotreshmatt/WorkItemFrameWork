@@ -4,3 +4,5 @@ export * from './AssignmentEligibilityValidator';
 export * from './ParameterValidator';
 export * from './LifecycleValidator';
 export * from './IdempotencyValidator';
+export * from './ValidationResult';
+

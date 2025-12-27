@@ -2,9 +2,9 @@ import { ValidationResult } from './ValidationResult';
 
 export class IdempotencyValidator {
 
-  validate(
+  async validate(
     alreadyProcessed: boolean
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
 
     return alreadyProcessed
       ? ValidationResult.fail('Duplicate command')

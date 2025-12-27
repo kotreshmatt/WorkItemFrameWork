@@ -2,10 +2,10 @@ import { ValidationResult } from './ValidationResult';
 
 export class ParameterValidator {
 
-  validateRequired(
+  async validateRequired(
     params: Record<string, any>,
     required: string[]
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
 
     for (const key of required) {
       if (!(key in params)) {

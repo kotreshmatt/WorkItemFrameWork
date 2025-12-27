@@ -3,8 +3,12 @@ import { WorkItemId } from '../../../../../packages/domain/workitem/WorkItemId';
 
 describe('ClaimWorkItemCommand', () => {
   it('should instantiate with WorkItemId and userId', () => {
-    const cmd = new ClaimWorkItemCommand(WorkItemId.of(1), 'user1');
+    const cmd: ClaimWorkItemCommand = {
+      workItemId: WorkItemId.of(1),
+      initiatedBy: 'user1',
+      initiatedAt: new Date()
+    };
     expect(cmd.workItemId.get()).toBe(1);
-    expect(cmd.userId).toBe('user1');
+    expect(cmd.initiatedAt).toBe('user1');
   });
 });
