@@ -13,29 +13,34 @@ import {
     IdempotencyValidator 
   } from '../../../../../packages/domain/workitem/validation/index';
 import { InMemoryOrgModelRepository } from '../../../../../packages/domain/Repository/InMemoryOrgModelrespository';
+import { TestLogger } from '../../../../utils/TestLogger';
 
 describe('WorkItemCommandValidationService', () => {
 
   const service = new WorkItemCommandValidationService(
-    new StateTransitionValidator(),
-    new AuthorizationValidator(),
-    new AssignmentEligibilityValidator(new InMemoryOrgModelRepository(
-      // OrgUnits
-      {
-        OU1: { id: 'OU1', name: 'Finance' }
-      },
-      // Positions by OrgUnit
-      {
-        OU1: [{ id: 'P1', name: 'Manager', orgUnitId: 'user1' }]
-      },
-      // Groups by User
-      {
-        user1: [{ id: 'G1', name: 'Managers' }]
-      }
-    )),
-    new ParameterValidator(),
-    new LifecycleValidator(),
-    new IdempotencyValidator()
+    new StateTransitionValidator(TestLogger),
+    new AuthorizationValidator(TestLogger),
+    new AssignmentEligibilityValidator(
+      new InMemoryOrgModelRepository(
+        // OrgUnits
+        {
+          OU1: { id: 'OU1', name: 'Finance' }
+        },
+        // Positions by OrgUnit
+        {
+          OU1: [{ id: 'P1', name: 'Manager', orgUnitId: 'user1' }]
+        },
+        // Groups by User
+        {
+          user1: [{ id: 'G1', name: 'Managers' }]
+        }
+      ),
+      TestLogger
+    ),
+    new ParameterValidator(TestLogger),
+    new LifecycleValidator(TestLogger),
+    new IdempotencyValidator(TestLogger),
+    TestLogger // Add the missing argument here
   );
 
   it('should pass validation for valid claim', async () => {

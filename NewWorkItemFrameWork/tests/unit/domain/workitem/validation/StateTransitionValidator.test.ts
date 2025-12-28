@@ -2,9 +2,10 @@ import { StateTransitionValidator } from
   '../../../../../packages/domain/workitem/validation/StateTransitionValidator'; 
 import { WorkItemState } from
   '../../../../../packages/domain/workitem/WorkItemState';
+  import { TestLogger } from '../../../../utils/TestLogger';
 
 describe('StateTransitionValidator', () => {
-  const validator = new StateTransitionValidator();
+  const validator = new StateTransitionValidator(TestLogger);
 
   it('allows valid transition', async () => {
     const result = await validator.validate(

@@ -16,6 +16,7 @@ import { Position } from
   '../../../../../packages/domain/orgmodel/Position';
 import { Group } from
   '../../../../../packages/domain/orgmodel/Group';
+import { TestLogger } from '../../../../utils/TestLogger';
 
 describe('AssignmentEligibilityValidator', () => {
 
@@ -34,7 +35,7 @@ describe('AssignmentEligibilityValidator', () => {
     }
   );
 
-  const validator = new AssignmentEligibilityValidator(orgRepo);
+  const validator = new AssignmentEligibilityValidator(orgRepo,TestLogger);
 
   it('allows eligible candidate user (direct user match)', async () => {
     const wi = new WorkItem(

@@ -1,8 +1,9 @@
 import { ParameterValidator } from
   '../../../../../packages/domain/workitem/validation/ParameterValidator';
+import { TestLogger } from '../../../../utils/TestLogger';
 
 describe('ParameterValidator', () => {
-  const validator = new ParameterValidator();
+  const validator = new ParameterValidator(TestLogger);
 
   it('passes when all required params exist', async () => {
     const result = await validator.validateRequired(

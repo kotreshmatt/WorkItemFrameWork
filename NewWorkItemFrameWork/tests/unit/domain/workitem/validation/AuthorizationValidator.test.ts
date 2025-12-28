@@ -1,8 +1,9 @@
 import { AuthorizationValidator } from
   '../../../../../packages/domain/workitem/validation/AuthorizationValidator';
+import { TestLogger } from '../../../../utils/TestLogger';
 
 describe('AuthorizationValidator', () => {
-  const validator = new AuthorizationValidator();
+  const validator = new AuthorizationValidator(TestLogger);
 
   it('allows assignee to act', async () => {
     const result = validator.validate('user1', 'user1');
