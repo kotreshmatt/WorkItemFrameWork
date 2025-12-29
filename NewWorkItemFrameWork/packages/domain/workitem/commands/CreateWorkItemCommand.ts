@@ -2,6 +2,10 @@ import { WorkItemId } from '../WorkItemId';
 import { WorkItemAssignmentSpec } from '../WorkItemAssignmentSpec';
 
 export interface CreateWorkItemCommand {
+  candidateUsers: never[];
+  distributionConfig: { seed?: number; maxLoad?: number; };
+  //strategy: DistributionStrategyType;
+  //mode: DistributionMode;
 
   /** Deterministic ID from orchestrator */
   readonly workItemId: WorkItemId;

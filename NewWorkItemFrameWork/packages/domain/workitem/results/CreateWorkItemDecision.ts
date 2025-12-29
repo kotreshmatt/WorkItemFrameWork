@@ -2,10 +2,11 @@
 import { WorkItemDraft } from '../WorkItemDraft';
 
 export interface CreateWorkItemDecision {
-    readonly draft: WorkItemDraft;
+    //readonly draft: WorkItemDraft;
+    readonly  initialState : string;
     readonly assignmentDecision: {
-      offeredTo: string[];
-      assignedTo?: string;
+     readonly offeredTo: string[];
+      
     };
     readonly lifecycleName: string;
   }

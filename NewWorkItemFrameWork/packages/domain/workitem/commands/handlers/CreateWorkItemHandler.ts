@@ -1,15 +1,17 @@
-import { AssignmentResolver } from '../../assignment/AssignmentResolver';
+// packages/domain/workitem/commands/handlers/CreateWorkItemHandler.ts
+
 import { LifecycleEngine } from '../../Lifecycle/LifecycleEngine';
+import { AssignmentResolver } from '../../assignment/AssignmentResolver';
 import { Logger } from '../../../common/logging';
 import { CreateWorkItemCommand } from '../CreateWorkItemCommand';
 import { CreateWorkItemDecision } from '../../results/CreateWorkItemDecision';
-import { DistributionContext } from '../../distribution/DistributionContext';
+import { DistributionStrategyType, DistributionMode } from '../../WorkItemDistribution';
 
 export class CreateWorkItemHandler {
 
   constructor(
-    private readonly assignmentResolver: AssignmentResolver,
     private readonly lifecycleEngine: LifecycleEngine,
+    private readonly assignmentResolver: AssignmentResolver,
     private readonly logger: Logger
   ) {}
 
@@ -17,40 +19,37 @@ export class CreateWorkItemHandler {
     command: CreateWorkItemCommand
   ): Promise<CreateWorkItemDecision> {
 
-    this.logger.info('CreateWorkItemHandler invoked', {
+    this.logger.info('CreateWorkItem started', {
       workflowId: command.workflowId,
       taskName: command.taskName
     });
 
-    /** Phase-1 & Phase-2 assume lifecycle already validated upstream */
-
+    // 1. Resolve initial lifecycle state
     const initialState =
       this.lifecycleEngine.getInitialState(command.lifecycle);
 
-    /** Build DistributionContext (Phase-3 responsibility) */
-    const distributionContext: DistributionContext = {
-      eligibleUsers: command.candidateUsers ?? [],
-      historicalAssignments: [],
-      config: command.distributionConfig
-    };
-
-    /** Correct async call */
+    // 2. Resolve assignment OFFER (Phase-2 logic only)
     const assignmentDecision =
       await this.assignmentResolver.resolve({
-        strategy: command.strategy,
-        mode: command.mode,
-        distributionContext
+        strategy: command.assignmentSpec.strategy as DistributionStrategyType,
+        mode: command.assignmentSpec.mode as DistributionMode,
+        distributionContext: {
+          eligibleUsers: []   // derived later from org model (Phase-4+)
+        }
       });
 
-    this.logger.info('CreateWorkItem decision completed', {
-      offeredTo: assignmentDecision.offeredTo,
-      assignedTo: assignmentDecision.assignedTo
+    this.logger.info('CreateWorkItem decision resolved', {
+      initialState,
+      offeredTo: [] // Placeholder for an empty array, replace with actual data if needed
     });
 
-    /** NO WorkItemId here – DB generates it in Phase-4 */
+    // 3. Return decision ONLY
     return {
       initialState,
-      assignmentDecision
+      assignmentDecision: {
+        offeredTo: assignmentDecision.offeredTo
+      },
+      lifecycleName: command.lifecycle // Ensure `command.lifecycle` is a string
     };
   }
 }

@@ -11,7 +11,10 @@ import { TransitionResolver } from
         return true;
       }
       return false;
-    })
+    }),
+    getInitialState: function (lifecycle: string): WorkItemState {
+      throw new Error('Function not implemented.');
+    }
   };
   
   describe('LifecycleEngine', () => {
