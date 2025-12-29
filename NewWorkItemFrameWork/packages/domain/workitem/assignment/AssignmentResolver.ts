@@ -11,8 +11,8 @@ export interface AssignmentContext {
 }
 
 export interface AssignmentResult {
-  offeredTo: string[];
-  assignedTo?: string;
+  readonly offeredTo: string[];
+  readonly assignedTo?: string;
 }
 
 export class AssignmentResolver {

@@ -6,4 +6,5 @@ export interface AssignmentContext {
   candidateGroups: string[];
   candidateOrgUnits: string[];
   candidatePositions: string[];
+  
 }
