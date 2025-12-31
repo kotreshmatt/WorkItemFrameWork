@@ -1,35 +1,52 @@
+// packages/domain/workitem/commands/CreateWorkItemCommand.ts
+
 import { WorkItemId } from '../WorkItemId';
 import { WorkItemAssignmentSpec } from '../WorkItemAssignmentSpec';
+import {
+  DistributionStrategyType,
+  DistributionMode
+} from '../WorkItemDistribution';
 
 export interface CreateWorkItemCommand {
-  candidateUsers: never[];
-  distributionConfig: { seed?: number; maxLoad?: number; };
-  //strategy: DistributionStrategyType;
-  //mode: DistributionMode;
 
   /** Deterministic ID from orchestrator */
-  readonly workItemId: WorkItemId;
+  //readonly workItemId: WorkItemId;
 
-  /** Workflow / process correlation */
+  /** Workflow correlation */
   readonly workflowId: string;
   readonly runId: string;
 
   /** Task metadata */
-  readonly type: string;
+  readonly taskType: string;
   readonly taskName: string;
+  readonly description?: string;
+  readonly priority?: number;
 
-  /** Assignment rules */
+  /** Assignment */
   readonly assignmentSpec: WorkItemAssignmentSpec;
 
-  /** Initial input parameters */
-  readonly parameters?: Record<string, unknown>;
+  /** Distribution (optional → defaults applied) */
+  readonly distributionStrategy?: DistributionStrategyType;
+  readonly distributionMode?: DistributionMode;
 
-  /** Lifecycle to apply */
+  /** Context */
+  readonly contextData?: Record<string, unknown>;
+
+  /** Parameters */
+  readonly parameters?: Array<{
+    name: string;
+    direction: 'IN' | 'OUT' | 'INOUT';
+    mandatory?: boolean;
+    value?: unknown;
+  }>;
+
+  /** SLA */
+  readonly dueDate?: Date | null;
+
+  /** Lifecycle */
   readonly lifecycle: string;
 
-  /** Who initiated creation (system / orchestrator) */
+  /** Actor */
   readonly initiatedBy: string;
-
-  /** Deterministic timestamp */
   readonly initiatedAt: Date;
 }

@@ -1,10 +1,15 @@
-// packages/domain/workitem/command/WorkItemCommandService.ts
+// packages/domain/workitem/commands/WorkItemCommandService.ts
+
 import { Logger } from '../../common/logging';
 import { WorkItemCommandValidationService } from '../validation-orchestrator/WorkItemCommandValidationService';
 import { LifecycleEngine } from '../Lifecycle/LifecycleEngine';
 import { AssignmentResolver } from '../assignment/AssignmentResolver';
-import { WorkItemActionGateway } from '../../../gateway/port/WorkItemActionGateway';
-import { CommandExecutionError } from './errors/CommandExecutionError';
+import { CommandDecision } from '../results/CommandDecision';
+
+export interface CommandExecutionContext {
+  readonly validationContext: any;
+  readonly assignmentContext?: any;
+}
 
 export class WorkItemCommandService {
 
@@ -12,50 +17,52 @@ export class WorkItemCommandService {
     private readonly validator: WorkItemCommandValidationService,
     private readonly lifecycleEngine: LifecycleEngine,
     private readonly assignmentResolver: AssignmentResolver,
-    private readonly actionGateway: WorkItemActionGateway,
     private readonly logger: Logger
   ) {}
 
-  async execute(
-    command: unknown,
-    context: {
-      action: keyof WorkItemActionGateway;
-      validationContext: any;
-      assignmentContext?: any;
-    }
-  ) {
-    this.logger.info('Command execution started', {
-      action: context.action
-    });
+  async decide(
+    context: CommandExecutionContext
+  ): Promise<CommandDecision> {
 
+    this.logger.info('Command decision started');
+
+    // 1️⃣ Validation
     const validationResult =
       await this.validator.validate(context.validationContext);
 
     if (!validationResult.valid) {
-      this.logger.warn('Command validation failed', validationResult);
-      return validationResult;
+      return CommandDecision.rejected(validationResult);
     }
 
-    try {
-      if (context.assignmentContext) {
-        const assignment =
-          this.assignmentResolver.resolve(context.assignmentContext);
+    const { fromState, targetState, lifecycle } = context.validationContext;
 
-        this.logger.debug('Assignment resolved', assignment);
+    // 2️⃣ CREATE
+    if (!fromState && lifecycle) {
+      const initialState =
+        this.lifecycleEngine.getInitialState(lifecycle);
+
+      let assignmentDecision;
+      if (context.assignmentContext) {
+        assignmentDecision =
+          await this.assignmentResolver.resolve(context.assignmentContext);
       }
 
-      const result =
-        await this.actionGateway[context.action](command as any);
-
-      this.logger.info('Command execution completed', {
-        action: context.action
+      return CommandDecision.acceptedCreate({
+        initialState,
+        assignmentDecision
       });
-
-      return result;
-
-    } catch (err) {
-      this.logger.error('Command execution failed', err);
-      throw new CommandExecutionError('Command execution failed', err);
     }
+
+    // 3️⃣ TRANSITION
+    if (fromState && targetState) {
+      this.lifecycleEngine.assertTransition(fromState, targetState);
+
+      return CommandDecision.acceptedTransition({
+        fromState,
+        toState: targetState
+      });
+    }
+
+    throw new Error('Invalid command context');
   }
 }

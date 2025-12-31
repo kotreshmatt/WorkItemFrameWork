@@ -2,6 +2,7 @@ import { WorkItem } from '../WorkItem';
 import { ValidationResult } from './ValidationResult';
 import { OrgModelRepository } from '../../Repository/OrgModelRepository';
 import { Logger } from '../../common/logging';
+import { JdbcOrgModelRepository } from '../../../persistence/repository/JdbcOrgModelRepository';  
 
 export class AssignmentEligibilityValidator {
 

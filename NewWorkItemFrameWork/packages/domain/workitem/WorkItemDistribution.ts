@@ -1,5 +1,5 @@
 export enum DistributionStrategyType {
-    DEFAULT = 'DEFAULT',
+    DEFAULT = 'OFFER_TO_ALL',
     ROUND_ROBIN = 'ROUND_ROBIN',
     RANDOM = 'RANDOM',
     LOAD_BASED = 'LOAD_BASED',

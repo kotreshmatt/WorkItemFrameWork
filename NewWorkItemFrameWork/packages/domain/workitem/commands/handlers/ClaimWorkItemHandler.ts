@@ -1,22 +1,23 @@
 // packages/domain/workitem/command/handlers/ClaimWorkItemHandler.ts
-import { ClaimWorkItemCommand } from '../../commands/ClaimWorkItemCommand';
-import { WorkItemCommandService } from '../WorkItemCommandService';
+//import { ClaimWorkItemCommand } from '../../commands/ClaimWorkItemCommand';
+import { WorkItemCommandExecutor } from '../../../../persistence/executor/WorkItemCommandExecutor';
+import { TransitionWorkItemCommand } from '../TransitionWorkItemCommand';
 
 export class ClaimWorkItemHandler {
 
   constructor(
-    private readonly commandService: WorkItemCommandService
+    private readonly executor: WorkItemCommandExecutor
   ) {}
 
   handle(
-    command: ClaimWorkItemCommand,
+    command: TransitionWorkItemCommand,
     validationContext: any,
     assignmentContext: any
   ) {
-    return this.commandService.execute(command, {
-      action: 'claim',
-      validationContext,
-      assignmentContext
+    return this.executor.execute(command, {
+      action: 'CLAIM',
+      validationContext
+      
     });
   }
 }

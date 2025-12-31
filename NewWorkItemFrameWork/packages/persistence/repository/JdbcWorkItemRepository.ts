@@ -20,11 +20,14 @@ export class JdbcWorkItemRepository {
     row: {
       workflowId: string;
       state: string;
-      taskType?: string;
-      taskName?: string;
+      taskType?: string | undefined;
+      taskName?: string | undefined;
       runId: string;
       context?: unknown;
       parameters?: unknown;
+      priority?: number | undefined;
+      offeredTo?: string[] | undefined;
+      dueDate?: Date | null | undefined;
     }
   ): Promise<number> {
 
@@ -38,7 +41,7 @@ export class JdbcWorkItemRepository {
       const result = await tx.query<{ id: number }>(
         `
         INSERT INTO work_items
-          (workflow_id, state, task_type, task_name, run_id, context, parameters)
+          (workflow_id, state, task_type, task_name,priority, offeredto, dueDate, run_id, context, parameters)
         VALUES
           ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
@@ -48,9 +51,13 @@ export class JdbcWorkItemRepository {
           row.state,
           row.taskType ?? null,
           row.taskName ?? null,
+          row.priority ?? 300,
+          row.offeredTo ?? [],
+          row.dueDate ?? null,
           row.runId,
           row.context ?? {},
           row.parameters ?? {}
+          
         ]
       );
 
