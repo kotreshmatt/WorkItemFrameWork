@@ -1,5 +1,6 @@
 import { DistributionStrategy } from '../DistributionStrategy';
 import { DistributionStrategyType } from '../../WorkItemDistribution';
+import { OfferToAllStrategy } from './OfferToAllStrategy';
 
 export class DistributionStrategyRegistry {
 
@@ -9,9 +10,10 @@ export class DistributionStrategyRegistry {
   >();
 
   register(strategy: DistributionStrategy): void {
+    console.log(`[DEBUG] Registering strategy: ${strategy.type}`);
     this.strategies.set(strategy.type, strategy);
   }
-
+ 
   get(
     type: DistributionStrategyType,
     enabled: DistributionStrategyType[],
@@ -34,3 +36,12 @@ export class DistributionStrategyRegistry {
     return strategy;
   }
 }
+
+// Create an instance of the registry
+const strategyRegistry = new DistributionStrategyRegistry();
+
+// Register the 'OFFER_TO_ALL' strategy
+strategyRegistry.register(new OfferToAllStrategy());
+
+// Export the registry instance
+export default strategyRegistry;

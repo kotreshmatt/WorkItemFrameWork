@@ -59,6 +59,7 @@ describe('WorkItemCommandValidationService', () => {
     );
 
     const result = await service.validate({
+      action: 'CLAIM',
       workItem: wi,
       actorId: 'user1',
       targetState: WorkItemState.CLAIMED
@@ -82,6 +83,7 @@ describe('WorkItemCommandValidationService', () => {
     );
 
     const result = await service.validate({
+      action: 'COMPLETE',
       workItem: wi,
       actorId: 'user1',
       targetState: WorkItemState.COMPLETED
@@ -107,6 +109,7 @@ describe('WorkItemCommandValidationService', () => {
     (wi as any)._assigneeId = 'user1';
 
     const result = await service.validate({
+      action: 'COMPLETE',
       workItem: wi,
       actorId: 'user2',
       targetState: WorkItemState.COMPLETED

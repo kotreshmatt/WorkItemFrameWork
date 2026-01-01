@@ -26,14 +26,15 @@ export class AssignmentResolver {
   async resolve(context: AssignmentContext): Promise<AssignmentResult> {
 
     this.logger.debug('Resolving assignment', context);
-
+console.log('[DEBUG] AssignmentResolver context...', context);
     const strategy =
       this.strategyRegistry.get(context.strategy,
         [context.strategy],
         context.strategy);
-
+        console.log('[DEBUG] AssignmentResolver result...', strategy);
     const distributionResult =
       await strategy.resolve(context.distributionContext);
+      console.log('[DEBUG] Distribution result:', distributionResult);
 
     const offerResult =
       this.offerResolver.resolve(

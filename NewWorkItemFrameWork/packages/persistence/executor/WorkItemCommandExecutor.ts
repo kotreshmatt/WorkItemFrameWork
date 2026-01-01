@@ -55,21 +55,22 @@ export class WorkItemCommandExecutor {
     return this.uow.withTransaction(async (tx) => {
 
       this.logger.info('TX started', { action: context.action });
+      const decision =
+      await this.commandService.decide({
+        action: context.action,
+        validationContext: context.validationContext ?? {}
+      });
+
+    if (!decision.accepted) {
+      this.logger.info('Command rejected');
+      return decision;
+    }
+      
 
       /* -------------------------------------------------
        * 1️⃣ Phase-3: DECISION ONLY
        * ------------------------------------------------- */
-      const decision =
-        await this.commandService.decide({
-          validationContext: context.validationContext
-        });
-
-      if (!decision.accepted) {
-        this.logger.info('Command rejected');
-        return decision;
-      }
-
-      const actorId = context.validationContext.actorId;
+      
 
       /* -------------------------------------------------
        * 2️⃣ CREATE
@@ -81,11 +82,11 @@ export class WorkItemCommandExecutor {
         /* 2.1 Resolve assignment candidates (DB) */
         const eligibleUsers =
           await this.assignmentCandidateResolver.resolve(cmd.assignmentSpec);
-
+          console.log('[INFO] assignmentCandidateResolver result...', eligibleUsers);
         /* 2.2 Distribution defaults */
         const strategy =
           cmd.distributionStrategy ?? DistributionStrategyType.DEFAULT;
-
+          console.log('[INFO] distributionStrategy result...', strategy);
         const mode =
           cmd.distributionMode ?? DistributionMode.PULL;
 
@@ -94,9 +95,9 @@ export class WorkItemCommandExecutor {
           await this.assignmentResolver.resolve({
             strategy,
             mode,
-            distributionContext: { eligibleUsers }
+            distributionContext:  {eligibleUsers }
           });
-
+console.log('[INFO] assignmentResolver assignmentDecision...', assignmentDecision);
         /* 2.4 Admin fallback */
         const finalAssignment =
           eligibleUsers.length === 0
@@ -108,7 +109,8 @@ export class WorkItemCommandExecutor {
 
         const initialState =
           finalAssignment.assignedTo ? 'CLAIMED' : 'OFFERED';
-
+console.log('[INFO] finalAssignment...', JSON.parse(JSON.stringify(finalAssignment.offeredTo))
+);
         /* 2.5 Persist work item */
         const workItemId =
           await this.workItemRepo.insert(tx, {
@@ -124,6 +126,7 @@ export class WorkItemCommandExecutor {
             runId: cmd.runId,
             dueDate: cmd.dueDate
           });
+console.log('[INFO] workItemId...', workItemId);
 
         /* 2.6 Audit */
         await this.auditRepo.append(tx, {
@@ -140,10 +143,10 @@ export class WorkItemCommandExecutor {
         });
 
         /* 2.7 Outbox (no payload – Phase-7) */
-        await this.outboxRepo.insert(tx, {
+       /* await this.outboxRepo.insert(tx, {
           aggregateId: workItemId,
           eventType: 'WorkItemCreated'
-        });
+        });*/
 
         this.logger.info('WorkItem created', { workItemId });
 
@@ -153,6 +156,7 @@ export class WorkItemCommandExecutor {
       /* -------------------------------------------------
        * 3️⃣ STATE TRANSITIONS (CLAIM / COMPLETE / CANCEL)
        * ------------------------------------------------- */
+      else{
       const wi = context.validationContext.workItem;
       const cmd = command as TransitionWorkItemCommand;
 
@@ -162,7 +166,7 @@ export class WorkItemCommandExecutor {
           id: wi.id,
           expectedVersion: wi.version,
           toState: cmd.targetState,
-          actorId
+          actorId:context.validationContext.actorId,
         }
       );
 
@@ -171,7 +175,7 @@ export class WorkItemCommandExecutor {
         action: context.action,
         fromState: wi.state,
         toState: cmd.targetState,
-        actorId
+        actorId:context.validationContext.actorId,
       });
 
       await this.outboxRepo.insert(tx, {
@@ -185,6 +189,7 @@ export class WorkItemCommandExecutor {
       });
 
       return decision;
+    }
     });
   }
 }

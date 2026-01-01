@@ -1,22 +1,16 @@
-// packages/domain/workitem/commands/WorkItemCommandService.ts
-
 import { Logger } from '../../common/logging';
 import { WorkItemCommandValidationService } from '../validation-orchestrator/WorkItemCommandValidationService';
-import { LifecycleEngine } from '../Lifecycle/LifecycleEngine';
-import { AssignmentResolver } from '../assignment/AssignmentResolver';
 import { CommandDecision } from '../results/CommandDecision';
 
 export interface CommandExecutionContext {
-  readonly validationContext: any;
-  readonly assignmentContext?: any;
+  action: 'CREATE' | 'CLAIM' | 'COMPLETE' | 'CANCEL' | 'TRANSITION';
+  validationContext: any;
 }
 
 export class WorkItemCommandService {
 
   constructor(
     private readonly validator: WorkItemCommandValidationService,
-    private readonly lifecycleEngine: LifecycleEngine,
-    private readonly assignmentResolver: AssignmentResolver,
     private readonly logger: Logger
   ) {}
 
@@ -24,45 +18,46 @@ export class WorkItemCommandService {
     context: CommandExecutionContext
   ): Promise<CommandDecision> {
 
-    this.logger.info('Command decision started');
+    this.logger.debug('Command decision started', {
+      action: context.action
+    });
 
-    // 1️⃣ Validation
+    /* -------------------------------------------------
+     * CREATE → no validation, no workItem
+     * ------------------------------------------------- */
+    if (context.action === 'CREATE') {
+
+      this.logger.info('CREATE command accepted');
+
+      return CommandDecision.acceptedCreate({
+        initialState: 'OFFERED'
+      });
+    }
+
+    /* -------------------------------------------------
+     * TRANSITIONS → full validation pipeline
+     * ------------------------------------------------- */
+    else{
     const validationResult =
       await this.validator.validate(context.validationContext);
 
     if (!validationResult.valid) {
+      this.logger.warn('Command rejected by validation', validationResult);
       return CommandDecision.rejected(validationResult);
     }
 
-    const { fromState, targetState, lifecycle } = context.validationContext;
+    const { workItem, targetState } = context.validationContext;
 
-    // 2️⃣ CREATE
-    if (!fromState && lifecycle) {
-      const initialState =
-        this.lifecycleEngine.getInitialState(lifecycle);
+    this.logger.info('Command accepted', {
+      workItemId: workItem.id,
+      fromState: workItem.state,
+      toState: targetState
+    });
 
-      let assignmentDecision;
-      if (context.assignmentContext) {
-        assignmentDecision =
-          await this.assignmentResolver.resolve(context.assignmentContext);
-      }
-
-      return CommandDecision.acceptedCreate({
-        initialState,
-        assignmentDecision
-      });
-    }
-
-    // 3️⃣ TRANSITION
-    if (fromState && targetState) {
-      this.lifecycleEngine.assertTransition(fromState, targetState);
-
-      return CommandDecision.acceptedTransition({
-        fromState,
-        toState: targetState
-      });
-    }
-
-    throw new Error('Invalid command context');
+    return CommandDecision.acceptedTransition({
+      fromState: workItem.state,
+      toState: targetState
+    });
+  }
   }
 }

@@ -1,23 +1,23 @@
 import { Pool } from 'pg';
-import { JdbcPersistenceUnitOfWork } from '../packages/persistence/common/JdbcPersistenceUnitOfWork';
-import { JdbcWorkItemRepository } from '../packages/persistence/repository/JdbcWorkItemRepository';
-import { JdbcWorkItemAuditRepository } from '../packages/persistence/repository/JdbcWorkItemAuditRepository';
-import { JdbcOutboxRepository } from '../packages/persistence/repository/JdbcOutboxRepository';
-import { JdbcOrgModelRepository } from '../packages/persistence/repository/JdbcOrgModelRepository';
-import { JdbcAssignmentCandidateResolver } from '../packages/persistence/assignment/JdbcAssignmentCandidateResolver';
+import { JdbcPersistenceUnitOfWork } from '../../packages/persistence/common/JdbcPersistenceUnitOfWork';
+import { JdbcWorkItemRepository } from '../../packages/persistence/repository/JdbcWorkItemRepository';
+import { JdbcWorkItemAuditRepository } from '../../packages/persistence/repository/JdbcWorkItemAuditRepository';
+import { JdbcOutboxRepository } from '../../packages/persistence/repository/JdbcOutboxRepository';
+import { JdbcOrgModelRepository } from '../../packages/persistence/repository/JdbcOrgModelRepository';
+import { JdbcAssignmentCandidateResolver } from '../../packages/persistence/assignment/JdbcAssignmentCandidateResolver';
 
-import { AssignmentResolver } from '../packages/domain/workitem/assignment/AssignmentResolver';
-import { DistributionStrategyRegistry } from '../packages/domain/workitem/distribution/strategies/DistributionStrategyRegistry';
-import { WorkItemCommandValidationService } from '../packages/domain/workitem/validation-orchestrator/WorkItemCommandValidationService';
-import { AssignmentEligibilityValidator } from '../packages/domain/workitem/validation/AssignmentEligibilityValidator';
-import { LifecycleEngine } from '../packages/domain/workitem/Lifecycle/LifecycleEngine';
-import { WorkItemCommandService } from '../packages/domain/workitem/commands/WorkItemCommandService';
-import { WorkItemCommandExecutor } from '../packages/persistence/executor/WorkItemCommandExecutor';
+import { AssignmentResolver } from '../../packages/domain/workitem/assignment/AssignmentResolver';
+import { DistributionStrategyRegistry } from '../../packages/domain/workitem/distribution/strategies/DistributionStrategyRegistry';
+import { WorkItemCommandValidationService } from '../../packages/domain/workitem/validation-orchestrator/WorkItemCommandValidationService';
+import { AssignmentEligibilityValidator } from '../../packages/domain/workitem/validation/AssignmentEligibilityValidator';
+import { LifecycleEngine } from '../../packages/domain/workitem/Lifecycle/LifecycleEngine';
+import { WorkItemCommandService } from '../../packages/domain/workitem/commands/WorkItemCommandService';
+import { WorkItemCommandExecutor } from '../../packages/persistence/executor/WorkItemCommandExecutor';
 
-import { CreateWorkItemCommand } from '../packages/domain/workitem/commands/CreateWorkItemCommand';
-import { TransitionWorkItemCommand } from '../packages/domain/workitem/commands/TransitionWorkItemCommand';
-import { WorkItemState } from '../packages/domain/workitem/WorkItemState';
-import { OfferResolver } from '../packages/domain/workitem/distribution/OfferResolver';
+import { CreateWorkItemCommand } from '../../packages/domain/workitem/commands/CreateWorkItemCommand';
+import { TransitionWorkItemCommand } from '../../packages/domain/workitem/commands/TransitionWorkItemCommand';
+import { WorkItemState } from '../../packages/domain/workitem/WorkItemState';
+import { OfferResolver } from '../../packages/domain/workitem/distribution/OfferResolver';
 import {
   StateTransitionValidator,
   AuthorizationValidator,
@@ -25,8 +25,11 @@ import {
   ParameterValidator,
   LifecycleValidator,
   IdempotencyValidator
-} from '../packages/domain/workitem/validation/index';
-import { DistributionMode, DistributionStrategyType } from '../packages/domain';
+} from '../../packages/domain/workitem/validation/index';
+import { DistributionMode, DistributionStrategyType } from '../../packages/domain';
+import * as dotenv from 'dotenv';
+import { OfferToAllStrategy } from '../../packages/domain/workitem/distribution/strategies/OfferToAllStrategy';
+dotenv.config();
 
 class TestLogger {
   trace(message: string, meta?: unknown) {}
@@ -41,11 +44,24 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
   let executor: WorkItemCommandExecutor;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: process.env.TEST_DB_URL });
-    await pool.query(`BEGIN`);
-    await pool.query(require('fs').readFileSync('tests/sql/seed_e2e.sql', 'utf8'));
-    await pool.query(`COMMIT`);
+    pool = new Pool({ connectionString: 'postgresql://bpmdb:bpmdb@localhost:5432/bpmdb' });
+    //await pool.query(`BEGIN`);
+    //await pool.query(require('fs').readFileSync('tests/testdata.sql', 'utf8'));
+    //await pool.query(`COMMIT`);
 
+   /* try {
+      console.log('[INFO] Running test data setup...');
+      await pool.query(`BEGIN`);
+      await pool.query(require('fs').readFileSync('tests/testdata.sql', 'utf8'));
+      await pool.query(`COMMIT`);
+      console.log('[INFO] Test data setup completed.');
+    } catch (error) {
+      console.error('[ERROR] Error during test data setup:', error);
+      throw error;
+    }*/
+    const strategyRegistry = new DistributionStrategyRegistry();
+    console.log('[INFO] Registering OFFER_TO_ALL strategy for test...');
+    strategyRegistry.register(new OfferToAllStrategy());
     const logger = new TestLogger();
     const uow = new JdbcPersistenceUnitOfWork(pool, logger);
 
@@ -53,9 +69,6 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
     const candidateResolver = new JdbcAssignmentCandidateResolver(pool, logger);
 
     const offerresolver = new OfferResolver();
-
-    const strategyRegistry = new DistributionStrategyRegistry();
-    // uses default fallback behaviour already implemented
 
     const assignmentResolver =
       new AssignmentResolver(strategyRegistry, offerresolver, logger);
@@ -80,8 +93,6 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
     const commandService =
       new WorkItemCommandService(
         validationService,
-        lifecycleEngine,
-        assignmentResolver,
         logger
       );
 
@@ -96,11 +107,13 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         new JdbcOutboxRepository,
         logger
       );
+      console.log('[INFO] Test setup completed.');
   });
 
   it('CREATE → CLAIM → COMPLETE → CANCEL', async () => {
 
     // CREATE
+    console.log('[INFO] Executing CREATE command...');
     const createCmd: CreateWorkItemCommand = {
       //workItemId: 'WI-1',
       workflowId: 'wf1',
@@ -115,7 +128,35 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
       lifecycle: 'default',
       initiatedBy: 'system',
       initiatedAt: new Date(),
-      parameters: []
+      parameters: [
+        {
+          name: 'request',
+          direction: 'IN',
+          //type: 'object',
+          value: {  errocode: 'ERROR_CODE', errorMessage: 'Error message' }
+        },
+        {
+          name: 'retry',
+          direction: 'INOUT',
+          //type: 'boolean',
+          mandatory: false,
+          value: null
+        },
+        {
+          name: 'comments',
+          direction: 'INOUT',
+          //type: 'string',
+          mandatory: false,
+          value: null
+        },
+        {
+          name: 'skiperror',
+          direction: 'OUT',
+          //type: 'boolean',
+          value: null
+        }
+      ],
+      contextData: {  additionalInfo: 'Test work item' }
     };
 
     const createDecision =
@@ -123,7 +164,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         action: 'CREATE',
         validationContext: {}
       });
-
+    console.log('[DEBUG] Create Decision:', createDecision);
     expect(createDecision.accepted).toBe(true);
 
     const wiRow =

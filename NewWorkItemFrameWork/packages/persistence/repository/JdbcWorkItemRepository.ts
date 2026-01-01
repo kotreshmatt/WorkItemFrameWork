@@ -41,9 +41,9 @@ export class JdbcWorkItemRepository {
       const result = await tx.query<{ id: number }>(
         `
         INSERT INTO work_items
-          (workflow_id, state, task_type, task_name,priority, offeredto, dueDate, run_id, context, parameters)
+          (workflow_id, state, task_type, task_name,priority, offered_to, run_id,due_date, context, parameters)
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
         `,
         [
@@ -52,11 +52,12 @@ export class JdbcWorkItemRepository {
           row.taskType ?? null,
           row.taskName ?? null,
           row.priority ?? 300,
-          row.offeredTo ?? [],
-          row.dueDate ?? null,
+          JSON.stringify(row.offeredTo ?? []),
           row.runId,
-          row.context ?? {},
-          row.parameters ?? {}
+          row.dueDate ?? null,
+          
+          JSON.stringify(row.context ?? {}),
+          JSON.stringify(row.parameters ?? {})
           
         ]
       );

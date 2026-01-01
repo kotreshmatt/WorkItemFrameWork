@@ -10,7 +10,7 @@ import {
 } from '../validation/index';
 import { Logger } from '../../common/logging';
 
-export class WorkItemCommandValidationService {
+export class  WorkItemCommandValidationService {
   constructor(
     private readonly stateValidator: StateTransitionValidator,
     private readonly authValidator: AuthorizationValidator,
@@ -22,6 +22,11 @@ export class WorkItemCommandValidationService {
   ) {}
 
   async validate(context: ValidationContext): Promise<ValidationResult> {
+    if (!context.workItem) {
+      this.logger.error('Validation failed: workItem is undefined');
+      console.error('[ERROR] Validation Context:', context);
+      return ValidationResult.fail('Validation failed: workItem is undefined');
+    }
     this.logger.info(`Starting validation for work item with ID: ${context.workItem.id}`);
     this.logger.debug(`Validation context: ${JSON.stringify(context)}`);
 

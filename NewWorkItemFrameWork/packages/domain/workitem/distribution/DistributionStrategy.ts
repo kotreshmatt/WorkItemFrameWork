@@ -11,6 +11,7 @@ export class DefaultStrategy implements DistributionStrategy {
     readonly type = DistributionStrategyType.DEFAULT;
   
     async resolve(context: DistributionContext): Promise<DistributionResult> {
+      console.log('[DEBUG] resolvecontext input:', context);
       return {
         selectedUsers: context.eligibleUsers.slice(0, 1)
       };
