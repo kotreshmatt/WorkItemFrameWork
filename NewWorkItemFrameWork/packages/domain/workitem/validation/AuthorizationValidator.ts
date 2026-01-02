@@ -1,33 +1,65 @@
+// packages/domain/workitem/validation/AuthorizationValidator.ts
 import { ValidationResult } from './ValidationResult';
 import { Logger } from '../../common/logging';
 
+const ADMIN_USER = 'admin';
+
 export class AuthorizationValidator {
+
   constructor(private readonly logger: Logger) {}
 
   async validate(
+    action: 'CREATE'|'CLAIM' | 'COMPLETE' | 'CANCEL' | 'TRANSITION',
     actorId: string,
-    assigneeId?: string
+    workItem: {
+      assigneeId?: string;
+      state: string;
+    }
   ): Promise<ValidationResult> {
+console.log('[INFO] AuthorizationValidator validate called with:', { action, actorId, workItem });
     this.logger.info(
-      `Starting authorization validation for actorId: ${actorId}, assigneeId: ${assigneeId}`
+      `Authorization check: action=${action}, actor=${actorId}, assignee=${workItem.assigneeId}`
     );
 
-    if (!assigneeId) {
-      this.logger.info(
-        `Authorization validation passed: Work item is unassigned, actorId: ${actorId} is authorized`
-      );
-      return ValidationResult.ok(); // unassigned work item
+    // System / admin override
+    if (actorId === ADMIN_USER) {
+      return ValidationResult.ok();
     }
 
-    if (actorId === assigneeId) {
-      this.logger.info(
-        `Authorization validation passed: actorId: ${actorId} matches assigneeId: ${assigneeId}`
-      );
-      return ValidationResult.ok();
-    } else {
-      const errorMessage = `Authorization validation failed: actorId: ${actorId} does not match assigneeId: ${assigneeId}`;
-      this.logger.error(errorMessage);
-      return ValidationResult.fail(errorMessage);
+    switch (action) {
+
+      case 'CLAIM':
+        if (workItem.assigneeId) {
+          return ValidationResult.fail('Work item already claimed');
+        }
+        return ValidationResult.ok();
+
+      case 'COMPLETE':
+        if (workItem.assigneeId !== actorId) {
+          return ValidationResult.fail(
+            'Only assignee can complete work item'
+          );
+        }
+        return ValidationResult.ok();
+
+      case 'CANCEL':
+        if (workItem.assigneeId !== actorId) {
+          return ValidationResult.fail(
+            'Only assignee or admin can cancel work item'
+          );
+        }
+        return ValidationResult.ok();
+
+      case 'TRANSITION':
+        if (workItem.assigneeId !== actorId) {
+          return ValidationResult.fail(
+            'Unauthorized state transition'
+          );
+        }
+        return ValidationResult.ok();
+
+      default:
+        return ValidationResult.fail('Unknown action');
     }
   }
 }

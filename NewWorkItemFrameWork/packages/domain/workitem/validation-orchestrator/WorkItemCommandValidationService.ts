@@ -61,9 +61,17 @@ export class  WorkItemCommandValidationService {
 
     // 3. Authorization
     this.logger.info('Validating authorization...');
+    console.log('[INFO] Authorization Validation Input:', context);
+    console.log('[INFO] Authorization Validation actual Input:', context.actorId, context.workItem.assigneeId); 
+    const assigneeId = context.workItem.assigneeId ?? (context.workItem as any).assignee_id;
+    console.log('[INFO] Resolved Assignee ID:', assigneeId);
     const authResult = await this.authValidator.validate(
+      context.action,
       context.actorId,
-      context.workItem.assigneeId
+      {
+        assigneeId,
+        state: context.workItem.state
+      }
     );
     if (!authResult.valid) {
       this.logger.error('Authorization validation failed.');

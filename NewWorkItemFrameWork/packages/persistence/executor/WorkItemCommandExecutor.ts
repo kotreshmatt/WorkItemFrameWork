@@ -18,6 +18,8 @@ import {
 
 import { AssignmentResolver } from '../../domain/workitem/assignment/AssignmentResolver';
 import { AssignmentCandidateResolver } from '../../domain/workitem/assignment/AssignmentcandidateResolver';
+import { JdbcWorkItemParticipantRepository } from '../repository/JdbcWorkItemParticipantRepository';
+import { JdbcWorkItemParameterRepository } from '../repository/JdbcWorkItemParameterRepository';
 
 /**
  * Phase-4 executor
@@ -40,6 +42,8 @@ export class WorkItemCommandExecutor {
     private readonly assignmentResolver: AssignmentResolver, // Phase-2
     private readonly workItemRepo: JdbcWorkItemRepository,
     private readonly auditRepo: JdbcWorkItemAuditRepository,
+    private readonly participantRepo: JdbcWorkItemParticipantRepository,
+    private readonly parameterRepo: JdbcWorkItemParameterRepository,
     private readonly outboxRepo: JdbcOutboxRepository,
     private readonly logger: Logger
   ) {}
@@ -155,6 +159,20 @@ console.log('[INFO] workItemId...', workItemId);
           }
         });
 
+        await this.participantRepo.insertOfferedUsers(
+          tx,
+          workItemId,
+          finalAssignment.offeredTo
+        );
+
+        if (cmd.parameters?.length) {
+          await this.parameterRepo.insertAll(
+            tx,
+            workItemId,
+            cmd.parameters
+          );
+        }
+
         /* 2.7 Outbox (no payload – Phase-7) */
        /* await this.outboxRepo.insert(tx, {
           aggregateId: workItemId,
@@ -198,6 +216,17 @@ console.log('[INFO] workItemId...', workItemId);
         toState: cmd.targetState,
         actorId:context.validationContext.actorId,
       });
+      console.log('[INFO] WorkItem particpant table for' ,context.action,'claim ...', workItem.id, 'to', cmd.targetState);
+      if(context.action === 'CLAIM'){
+        console.log('[INFO] Assigning work item to actor...', context.validationContext.actorId, workItem.id);
+      if (context.validationContext.actorId) {
+        await this.participantRepo.assign(
+          tx,
+          workItem.id,
+          context.validationContext.actorId
+        );
+      }
+    }
 
       /*await this.outboxRepo.insert(tx, {
         aggregateId: wi.id,

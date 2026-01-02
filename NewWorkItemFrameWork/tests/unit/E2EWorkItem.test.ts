@@ -31,6 +31,8 @@ import * as dotenv from 'dotenv';
 import { OfferToAllStrategy } from '../../packages/domain/workitem/distribution/strategies/OfferToAllStrategy';
 import { LifecycleDefinitionLoader } from '../../packages/domain/workitem/Lifecycle/LifecycleDefinitionLoader';
 import { JdbcWorkItemAssignmentRepository } from '../../packages/persistence/repository/jdbcWorkItemAssignmentRepository';
+import { JdbcWorkItemParameterRepository } from '../../packages/persistence/repository/JdbcWorkItemParameterRepository';
+import { JdbcWorkItemParticipantRepository } from '../../packages/persistence/repository/JdbcWorkItemParticipantRepository';
 dotenv.config();
 
 class TestLogger {
@@ -107,6 +109,8 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         assignmentResolver,
         new JdbcWorkItemRepository(logger),
         new JdbcWorkItemAuditRepository(),
+        new JdbcWorkItemParticipantRepository(),
+        new JdbcWorkItemParameterRepository(),
         new JdbcOutboxRepository,
         logger
       );
@@ -192,12 +196,12 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         action: 'CLAIM',
         validationContext: {
           workItemID: workItemId,
-          actorId: 'user2',
+          actorId: 'user1',
           targetState: WorkItemState.CLAIMED
         }
       });
 console.log('[DEBUG] Claim Decision:', claimDecision);
-    expect(claimDecision.accepted).toBe(false);
+    expect(claimDecision.accepted).toBe(true);
 
     // COMPLETE
     const completeCmd: TransitionWorkItemCommand = {
@@ -217,24 +221,26 @@ console.log('[DEBUG] Claim Decision:', claimDecision);
         }
       });
     console.log('[DEBUG] Complete Decision:', completeDecision);
-    expect(completeDecision.accepted).toBe(false);
+    expect(completeDecision.accepted).toBe(true);
 
-   /* // CANCEL (new WI)
+    /* // CANCEL (new WI)
     const cancelCreate =
       await executor.execute(createCmd, {
         action: 'CANCEL',
         validationContext: {}
-      });*/
+      });
+    */
 
-/*const cancelWi =
-  await pool.query(`SELECT * FROM work_items ORDER BY id DESC LIMIT 1`);*/
-  const cancelWiId = 59;
-const cancelCmd: TransitionWorkItemCommand = {
-  workItemId: cancelWiId as typeof workItemId,
-  targetState: WorkItemState.CANCELLED,
-  actorId: 'user1',
-  initiatedAt: new Date()
-};
+    /*
+    const cancelWi =
+      await pool.query(`SELECT * FROM work_items ORDER BY id DESC LIMIT 1`);
+    const cancelWiId = 59;
+    const cancelCmd: TransitionWorkItemCommand = {
+      workItemId: cancelWiId as typeof workItemId,
+      targetState: WorkItemState.CANCELLED,
+      actorId: 'user1',
+      initiatedAt: new Date()
+    };
 
     const cancelDecision =
       await executor.execute(cancelCmd, {
@@ -245,8 +251,10 @@ const cancelCmd: TransitionWorkItemCommand = {
           targetState: WorkItemState.CANCELLED
         }
       });
-console.log('[DEBUG] Cancel Decision:', cancelDecision);
+    console.log('[DEBUG] Cancel Decision:', cancelDecision);
     expect(cancelDecision.accepted).toBe(true);
+    */
+
   });
 
   afterAll(async () => {

@@ -41,8 +41,12 @@ export class WorkItemCommandService {
      * ------------------------------------------------- */
     else{
       console.log('[INFO] contextinput',context);
+      const enrichedValidationContext = {
+        ...context.validationContext,
+        action: context.action
+      };
     const validationResult =
-      await this.validator.validate(tx, context.validationContext);
+      await this.validator.validate(tx, enrichedValidationContext);
       console.log('[INFO] validationResult',validationResult);
     if (!validationResult.valid) {
       this.logger.warn('Command rejected by validation', validationResult);
