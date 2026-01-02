@@ -1,6 +1,7 @@
 import { Logger } from '../../common/logging';
 import { WorkItemCommandValidationService } from '../validation-orchestrator/WorkItemCommandValidationService';
 import { CommandDecision } from '../results/CommandDecision';
+import { TransactionContext } from '../../../persistence/common/TransactionContext';
 
 export interface CommandExecutionContext {
   action: 'CREATE' | 'CLAIM' | 'COMPLETE' | 'CANCEL' | 'TRANSITION';
@@ -15,6 +16,7 @@ export class WorkItemCommandService {
   ) {}
 
   async decide(
+    tx: TransactionContext,
     context: CommandExecutionContext
   ): Promise<CommandDecision> {
 
@@ -38,9 +40,10 @@ export class WorkItemCommandService {
      * TRANSITIONS → full validation pipeline
      * ------------------------------------------------- */
     else{
+      console.log('[INFO] contextinput',context);
     const validationResult =
-      await this.validator.validate(context.validationContext);
-
+      await this.validator.validate(tx, context.validationContext);
+      console.log('[INFO] validationResult',validationResult);
     if (!validationResult.valid) {
       this.logger.warn('Command rejected by validation', validationResult);
       return CommandDecision.rejected(validationResult);

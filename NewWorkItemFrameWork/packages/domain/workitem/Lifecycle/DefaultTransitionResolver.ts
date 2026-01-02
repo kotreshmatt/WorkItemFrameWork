@@ -11,9 +11,9 @@ import { WorkItemState } from '../WorkItemState';
 export class DefaultTransitionResolver implements TransitionResolver {
 
   private readonly transitions: Record<WorkItemState, WorkItemState[]> = {
-    [WorkItemState.NEW]:       [WorkItemState.ACTIVE],
-    [WorkItemState.ACTIVE]:    [WorkItemState.CLAIMED, WorkItemState.CANCELLED],
-    [WorkItemState.CLAIMED]:   [WorkItemState.COMPLETED, WorkItemState.CANCELLED],
+    [WorkItemState.NEW]: [WorkItemState.OFFERED],
+    [WorkItemState.OFFERED]: [WorkItemState.CLAIMED, WorkItemState.CANCELLED],
+    [WorkItemState.CLAIMED]: [WorkItemState.COMPLETED, WorkItemState.CANCELLED],
     [WorkItemState.COMPLETED]: [],
     [WorkItemState.CANCELLED]: []
   };

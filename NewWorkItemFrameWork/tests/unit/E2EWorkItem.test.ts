@@ -29,6 +29,8 @@ import {
 import { DistributionMode, DistributionStrategyType } from '../../packages/domain';
 import * as dotenv from 'dotenv';
 import { OfferToAllStrategy } from '../../packages/domain/workitem/distribution/strategies/OfferToAllStrategy';
+import { LifecycleDefinitionLoader } from '../../packages/domain/workitem/Lifecycle/LifecycleDefinitionLoader';
+import { JdbcWorkItemAssignmentRepository } from '../../packages/persistence/repository/jdbcWorkItemAssignmentRepository';
 dotenv.config();
 
 class TestLogger {
@@ -73,8 +75,9 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
     const assignmentResolver =
       new AssignmentResolver(strategyRegistry, offerresolver, logger);
 
+    const assignmentRepo = new JdbcWorkItemAssignmentRepository();
     const eligibilityValidator =
-      new AssignmentEligibilityValidator(orgRepo, logger);
+      new AssignmentEligibilityValidator(orgRepo, assignmentRepo, logger);
 
     const validationService =
       new WorkItemCommandValidationService(
@@ -82,7 +85,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         new AuthorizationValidator(logger),
         eligibilityValidator,
         new ParameterValidator(logger),
-        new LifecycleValidator(logger),
+        new LifecycleValidator(logger, new LifecycleDefinitionLoader()),
         new IdempotencyValidator(logger),
         logger,
         // Add the missing argument here
@@ -116,7 +119,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
     console.log('[INFO] Executing CREATE command...');
     const createCmd: CreateWorkItemCommand = {
       //workItemId: 'WI-1',
-      workflowId: 'wf1',
+      workflowId: 'wf2'+Date.now(),
       runId: 'run1',
       taskType: 'Technical-Exception',
       taskName: 'Handle exception',
@@ -170,10 +173,11 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
     const wiRow =
       await pool.query(`SELECT * FROM work_items WHERE workflow_id='wf1'`);
 
-    const workItemId = wiRow.rows[0].id;
+    const workItemId = wiRow.rows[0].id;console.log('[INFO] WI CREATED ID...',workItemId);
     expect(wiRow.rows[0].state).toBe('OFFERED');
 
     // CLAIM
+    console.log('[INFO] Executing CLAIM command...');
     const claimCmd: TransitionWorkItemCommand = {
       workItemId,
       targetState: WorkItemState.CLAIMED,
@@ -186,7 +190,8 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         action: 'CLAIM',
         validationContext: {
           workItem: wiRow.rows[0],
-          actorId: 'user1'
+          actorId: 'user1',
+          targetState: WorkItemState.CLAIMED
         }
       });
 
@@ -204,8 +209,9 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
       await executor.execute(completeCmd, {
         action: 'COMPLETE',
         validationContext: {
-          workItem: { ...wiRow.rows[0], state: 'CLAIMED' },
-          actorId: 'user1'
+          workItemID: workItemId,
+          actorId: 'user1',
+          targetState: WorkItemState.COMPLETED
         }
       });
 

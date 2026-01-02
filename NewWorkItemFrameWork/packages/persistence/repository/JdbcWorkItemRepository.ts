@@ -75,6 +75,30 @@ export class JdbcWorkItemRepository {
       mapPgError(e);
     }
   }
+  async findById(tx: TransactionContext, id: number): Promise<any | null> {
+    this.logger.debug('DB find work_item by id', { id });
+
+    try {
+      const result = await tx.query(
+        `
+        SELECT *
+        FROM work_items
+        WHERE id = $1
+        `,
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return null;
+      }
+
+      return result.rows[0];
+
+    } catch (e: unknown) {
+      this.logger.error('Failed to find work_item by id', e);
+      mapPgError(e);
+    }
+  }
 
   /**
    * Transition state with optimistic locking.
@@ -90,7 +114,7 @@ export class JdbcWorkItemRepository {
   ): Promise<void> {
 
     this.logger.debug('DB transition work_item', params);
-
+    console.log('[DEBUG] Transitioning WorkItem:', params);
     try {
       const result = await tx.query(
         `

@@ -2,24 +2,27 @@ import { WorkItem } from '../WorkItem';
 import { ValidationResult } from './ValidationResult';
 import { OrgModelRepository } from '../../Repository/OrgModelRepository';
 import { Logger } from '../../common/logging';
-import { JdbcOrgModelRepository } from '../../../persistence/repository/JdbcOrgModelRepository';  
+import { JdbcWorkItemAssignmentRepository } from '../../../persistence/repository/jdbcWorkItemAssignmentRepository';  
+import { TransactionContext } from '../../../persistence/common/TransactionContext';
 
 export class AssignmentEligibilityValidator {
 
 
   constructor(
     private readonly orgRepo: OrgModelRepository,
+    private readonly assignmentRepo: JdbcWorkItemAssignmentRepository,
     private readonly logger: Logger
   ) {}
 
-  async validate(workItem: WorkItem, actorId: string): Promise<ValidationResult> {
+  async validate(tx: TransactionContext,workItem: WorkItem, actorId: string): Promise<ValidationResult> {
     this.logger.info(`Starting assignment eligibility validation for actorId: ${actorId}`);
 
-    const spec = workItem.assignmentSpec;
-    this.logger.debug(`Assignment specification: ${JSON.stringify(spec)}`);
+    //const spec = workItem.assignmentSpec;
+    //spec.candidateUsers = [actorId];
+   // this.logger.debug(`Assignment specification: ${JSON.stringify(spec)}`);
 
     // 1. No eligibility constraints → do not reject
-    const noConstraints =
+    /*const noConstraints =
       !spec.candidateUsers &&
       !spec.candidateGroups &&
       !spec.candidateOrgUnits &&
@@ -28,9 +31,22 @@ export class AssignmentEligibilityValidator {
     if (noConstraints) {
       this.logger.info('No eligibility constraints found. Validation passed.');
       return ValidationResult.ok();
+    }*/console.log('[INFO] Checking if user is offered the work item:', { workItemId: workItem.id, actorId });  
+      const eligible =
+      await this.assignmentRepo.isUserOffered(
+        tx,
+        Number(workItem.id),
+        actorId
+      );
+
+    if (!eligible) {
+      return ValidationResult.fail(
+        'Actor not in offered_to list'
+      );
     }
 
-    // 2. Direct user assignment
+    return ValidationResult.ok();
+    /*// 2. Direct user assignment
     if (spec.candidateUsers?.includes(actorId)) {
       this.logger.info(`ActorId: ${actorId} is directly listed in candidateUsers. Validation passed.`);
       return ValidationResult.ok();
@@ -93,6 +109,6 @@ export class AssignmentEligibilityValidator {
     }
 
     this.logger.error(`ActorId: ${actorId} is not eligible for this work item. Validation failed.`);
-    return ValidationResult.fail('Actor not eligible for this work item');
+    return ValidationResult.fail('Actor not eligible for this work item');*/
   }
 }

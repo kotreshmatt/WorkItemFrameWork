@@ -1,6 +1,6 @@
 export enum WorkItemState {
     NEW = 'NEW',
-    ACTIVE = 'ACTIVE',
+    OFFERED = 'OFFERED',
     CLAIMED = 'CLAIMED',
     COMPLETED = 'COMPLETED',
     CANCELLED = 'CANCELLED'

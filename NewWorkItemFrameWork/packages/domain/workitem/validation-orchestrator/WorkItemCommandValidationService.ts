@@ -9,6 +9,7 @@ import {
   IdempotencyValidator
 } from '../validation/index';
 import { Logger } from '../../common/logging';
+import { TransactionContext } from '../../../persistence/common/TransactionContext';
 
 export class  WorkItemCommandValidationService {
   constructor(
@@ -21,7 +22,7 @@ export class  WorkItemCommandValidationService {
     private readonly logger: Logger
   ) {}
 
-  async validate(context: ValidationContext): Promise<ValidationResult> {
+  async validate( tx: TransactionContext,context: ValidationContext): Promise<ValidationResult> {
     if (!context.workItem) {
       this.logger.error('Validation failed: workItem is undefined');
       console.error('[ERROR] Validation Context:', context);
@@ -29,13 +30,16 @@ export class  WorkItemCommandValidationService {
     }
     this.logger.info(`Starting validation for work item with ID: ${context.workItem.id}`);
     this.logger.debug(`Validation context: ${JSON.stringify(context)}`);
-
+    console.error('[INFO] Validation Context for :',context.action, context);
     // 1. Lifecycle validity
     this.logger.info('Validating lifecycle...');
+    console.log('[INFO] Lifecycle Validation Input:', context.workItem.state, context.targetState);
     const lifecycleResult = this.lifecycleValidator.validate(
-      [context.workItem.state],
+      'default', // assuming a default lifecycle for simplicity
+      context.workItem.state,
       context.targetState
     );
+    console.log('[INFO] Lifecycle Validation Result:', await lifecycleResult);
     if (!(await lifecycleResult).valid) {
       this.logger.error('Lifecycle validation failed.');
       return lifecycleResult;
@@ -43,16 +47,17 @@ export class  WorkItemCommandValidationService {
     this.logger.info('Lifecycle validation passed.');
 
     // 2. State transition
-    this.logger.info('Validating state transition...');
+   /* this.logger.info('Validating state transition...');
     const stateResult = await this.stateValidator.validate(
       context.workItem.state,
       context.targetState
     );
+    console.log('[INFO] State Transition Validation Result:', stateResult);
     if (!stateResult.valid) {
       this.logger.error('State transition validation failed.');
       return stateResult;
     }
-    this.logger.info('State transition validation passed.');
+    this.logger.info('State transition validation passed.');*/
 
     // 3. Authorization
     this.logger.info('Validating authorization...');
@@ -65,11 +70,12 @@ export class  WorkItemCommandValidationService {
       return authResult;
     }
     this.logger.info('Authorization validation passed.');
-
+console.log('[INFO] Authorization Validation Result:', authResult);
     // 4. Assignment eligibility (only when claiming)
     if (context.targetState === 'CLAIMED') {
       this.logger.info('Validating assignment eligibility...');
       const assignmentResult = await this.assignmentValidator.validate(
+        tx,
         context.workItem,
         context.actorId
       );

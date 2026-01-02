@@ -6,10 +6,10 @@ export class LifecycleDefinitionLoader {
   private readonly lifecycles = new Map<string, LifecycleDefinition>([
     ['default', {
       name: 'default',
-      initialState: WorkItemState.NEW,
+      initialState: WorkItemState.OFFERED,
       transitions: {
-        NEW: [WorkItemState.ACTIVE],
-        ACTIVE: [WorkItemState.CLAIMED, WorkItemState.CANCELLED],
+        NEW: [WorkItemState.OFFERED],
+        OFFERED: [WorkItemState.CLAIMED, WorkItemState.CANCELLED],
         CLAIMED: [WorkItemState.COMPLETED, WorkItemState.CANCELLED],
         COMPLETED: [],
         CANCELLED: []

@@ -32,7 +32,7 @@ export class WorkItem {
   }
 
   activate(): void {
-    this.transitionTo(WorkItemState.ACTIVE);
+    this.transitionTo(WorkItemState.OFFERED);
   }
 
   claim(userId: string): void {

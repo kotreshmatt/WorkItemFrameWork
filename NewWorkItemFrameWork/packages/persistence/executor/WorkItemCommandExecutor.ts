@@ -53,20 +53,32 @@ export class WorkItemCommandExecutor {
   ): Promise<CommandDecision> {
 
     return this.uow.withTransaction(async (tx) => {
-
+console.log('[INFO] WorkItemCommandExecutor execute started...', context);
       this.logger.info('TX started', { action: context.action });
+      if(context.action !='CREATE'){
+        const workItem =
+        await this.workItemRepo.findById(tx, context.validationContext.workItemId);
+
+       if (!workItem) {
+            throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
+        }
+        else{
+          context.validationContext.workItem = workItem;
+        }
+      }
       const decision =
-      await this.commandService.decide({
+      await this.commandService.decide(tx, {
         action: context.action,
         validationContext: context.validationContext ?? {}
+        
       });
-
+      console.log('[INFO] Command accepted',decision);
     if (!decision.accepted) {
       this.logger.info('Command rejected');
       return decision;
     }
       
-
+    console.log('[INFO] Command accepted',decision);
       /* -------------------------------------------------
        * 1️⃣ Phase-3: DECISION ONLY
        * ------------------------------------------------- */
@@ -148,7 +160,8 @@ console.log('[INFO] workItemId...', workItemId);
           eventType: 'WorkItemCreated'
         });*/
 
-        this.logger.info('WorkItem created', { workItemId });
+        this.logger.info('WorkItem created', { workItemId } );
+        console.log('[DEBUG] WorkItem created', { workItemId } + 'with decision', decision);
 
         return decision;
       }
@@ -157,34 +170,41 @@ console.log('[INFO] workItemId...', workItemId);
        * 3️⃣ STATE TRANSITIONS (CLAIM / COMPLETE / CANCEL)
        * ------------------------------------------------- */
       else{
-      const wi = context.validationContext.workItem;
-      const cmd = command as TransitionWorkItemCommand;
+        const cmd = command as TransitionWorkItemCommand;
+        const workItem =
+        await this.workItemRepo.findById(tx, Number(cmd.workItemId!));
+
+      if (!workItem) {
+        throw new Error('WorkItem not found');
+      }
+      //const wi = context.validationContext.workItemID;
+      
 
       await this.workItemRepo.transitionState(
         tx,
         {
-          id: wi.id,
-          expectedVersion: wi.version,
+          id: workItem.id,
+          expectedVersion: workItem.version,
           toState: cmd.targetState,
           actorId:context.validationContext.actorId,
         }
       );
 
       await this.auditRepo.append(tx, {
-        workItemId: wi.id,
+        workItemId: workItem.id,
         action: context.action,
-        fromState: wi.state,
+        fromState: workItem.state,
         toState: cmd.targetState,
         actorId:context.validationContext.actorId,
       });
 
-      await this.outboxRepo.insert(tx, {
+      /*await this.outboxRepo.insert(tx, {
         aggregateId: wi.id,
         eventType: `WorkItem${context.action}`
-      });
+      });*/
 
       this.logger.info('WorkItem transitioned', {
-        workItemId: wi.id,
+        workItemId: workItem.id,
         action: context.action
       });
 
