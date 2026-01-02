@@ -56,8 +56,9 @@ export class WorkItemCommandExecutor {
 console.log('[INFO] WorkItemCommandExecutor execute started...', context);
       this.logger.info('TX started', { action: context.action });
       if(context.action !='CREATE'){
+        console.log('[INFO] Fetching work item ', context.validationContext.workItemID+'for action...',context.action);
         const workItem =
-        await this.workItemRepo.findById(tx, context.validationContext.workItemId);
+        await this.workItemRepo.findById(tx, context.validationContext.workItemID);
 
        if (!workItem) {
             throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
