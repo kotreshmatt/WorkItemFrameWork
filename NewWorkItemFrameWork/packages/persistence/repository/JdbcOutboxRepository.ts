@@ -1,8 +1,29 @@
 import { TransactionContext } from '../common/TransactionContext';
 
+export interface OutboxEvent {
+  aggregateId: number;
+  aggregateType: string;
+  eventType: string;
+  eventVersion: string;
+  payload: string;
+  occurredAt: Date;
+}
+
 export class JdbcOutboxRepository {
-  insert(tx: TransactionContext, arg1: { aggregateId: number; eventType: string; }) {
-      throw new Error('Method not implemented.');
+  async insert(tx: TransactionContext, event: OutboxEvent): Promise<void> {
+    await tx.query(
+      `INSERT INTO outbox_events
+       (aggregate_id, aggregate_type, event_type, event_version, payload, occurred_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')`,
+      [
+        event.aggregateId,
+        event.aggregateType,
+        event.eventType,
+        event.eventVersion,
+        event.payload,
+        event.occurredAt
+      ]
+    );
   }
 
   async write(

@@ -8,6 +8,7 @@ import { JdbcOutboxRepository } from '../repository/JdbcOutboxRepository';
 import { Logger } from '../../domain/common/logging';
 
 import { CommandDecision } from '../../domain/workitem/results/CommandDecision';
+import { ValidationResult } from '../../domain/workitem/validation/ValidationResult';
 import { CreateWorkItemCommand } from '../../domain/workitem/commands/CreateWorkItemCommand';
 import { TransitionWorkItemCommand } from '../../domain/workitem/commands/TransitionWorkItemCommand';
 
@@ -20,6 +21,8 @@ import { AssignmentResolver } from '../../domain/workitem/assignment/AssignmentR
 import { AssignmentCandidateResolver } from '../../domain/workitem/assignment/AssignmentcandidateResolver';
 import { JdbcWorkItemParticipantRepository } from '../repository/JdbcWorkItemParticipantRepository';
 import { JdbcWorkItemParameterRepository } from '../repository/JdbcWorkItemParameterRepository';
+import { JdbcIdempotencyRepository } from '../repository/JdbcIdempotencyRepositroy';
+import { FEATURE_FLAGS } from '../../config/FeatureFlags';
 
 /**
  * Phase-4 executor
@@ -45,65 +48,91 @@ export class WorkItemCommandExecutor {
     private readonly participantRepo: JdbcWorkItemParticipantRepository,
     private readonly parameterRepo: JdbcWorkItemParameterRepository,
     private readonly outboxRepo: JdbcOutboxRepository,
+    private readonly idempotencyRepo: JdbcIdempotencyRepository,
     private readonly logger: Logger
-  ) {}
+  ) { }
 
   async execute(
     command: CreateWorkItemCommand | TransitionWorkItemCommand,
     context: {
       action: 'CREATE' | 'CLAIM' | 'COMPLETE' | 'CANCEL' | 'TRANSITION';
       validationContext: any;
+      idempotencyKey?: string; // Optional - for duplicate detection
     }
   ): Promise<CommandDecision> {
 
     return this.uow.withTransaction(async (tx) => {
-console.log('[INFO] WorkItemCommandExecutor execute started...', context);
       this.logger.info('TX started', { action: context.action });
-      if(context.action !='CREATE'){
-        console.log('[INFO] Fetching work item ', context.validationContext.workItemID+'for action...',context.action);
-        const workItem =
-        await this.workItemRepo.findById(tx, context.validationContext.workItemID);
 
-       if (!workItem) {
-            throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
+      // Idempotency check (skip for CREATE, optional for others)
+      if (
+        FEATURE_FLAGS.IDEMPOTENCY_ENABLED &&
+        context.action !== 'CREATE' &&
+        context.idempotencyKey
+      ) {
+        const workItemId = context.validationContext?.workItemID || 0;
+        const isNew = await this.idempotencyRepo.tryInsert(
+          tx,
+          context.idempotencyKey,
+          workItemId,
+          context.action
+        );
+
+        if (!isNew) {
+          this.logger.warn('Duplicate command detected', {
+            idempotencyKey: context.idempotencyKey,
+            action: context.action
+          });
+          return CommandDecision.rejected(
+            ValidationResult.fail('Duplicate command detected')
+          );
         }
-        else{
+      }
+      if (context.action != 'CREATE') {
+        console.log('[INFO] Fetching work item ', context.validationContext.workItemID + 'for action...', context.action);
+        const workItem =
+          await this.workItemRepo.findById(tx, context.validationContext.workItemID);
+
+        if (!workItem) {
+          throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
+        }
+        else {
           context.validationContext.workItem = workItem;
         }
       }
       const decision =
-      await this.commandService.decide(tx, {
-        action: context.action,
-        validationContext: context.validationContext ?? {}
-        
-      });
-      console.log('[INFO] Command accepted',decision);
-    if (!decision.accepted) {
-      this.logger.info('Command rejected');
-      return decision;
-    }
-      
-    console.log('[INFO] Command accepted',decision);
+        await this.commandService.decide(tx, {
+          action: context.action,
+          validationContext: context.validationContext ?? {}
+
+        });
+      console.log('[INFO] Command accepted', decision);
+      if (!decision.accepted) {
+        this.logger.info('Command rejected');
+        return decision;
+      }
+
+      console.log('[INFO] Command accepted', decision);
       /* -------------------------------------------------
        * 1️⃣ Phase-3: DECISION ONLY
        * ------------------------------------------------- */
-      
+
 
       /* -------------------------------------------------
        * 2️⃣ CREATE
        * ------------------------------------------------- */
       if (context.action === 'CREATE') {
         const cmd = command as CreateWorkItemCommand;
-        
+
 
         /* 2.1 Resolve assignment candidates (DB) */
         const eligibleUsers =
           await this.assignmentCandidateResolver.resolve(cmd.assignmentSpec);
-          console.log('[INFO] assignmentCandidateResolver result...', eligibleUsers);
+        console.log('[INFO] assignmentCandidateResolver result...', eligibleUsers);
         /* 2.2 Distribution defaults */
         const strategy =
           cmd.distributionStrategy ?? DistributionStrategyType.DEFAULT;
-          console.log('[INFO] distributionStrategy result...', strategy);
+        console.log('[INFO] distributionStrategy result...', strategy);
         const mode =
           cmd.distributionMode ?? DistributionMode.PULL;
 
@@ -112,22 +141,22 @@ console.log('[INFO] WorkItemCommandExecutor execute started...', context);
           await this.assignmentResolver.resolve({
             strategy,
             mode,
-            distributionContext:  {eligibleUsers }
+            distributionContext: { eligibleUsers }
           });
-console.log('[INFO] assignmentResolver assignmentDecision...', assignmentDecision);
+        console.log('[INFO] assignmentResolver assignmentDecision...', assignmentDecision);
         /* 2.4 Admin fallback */
         const finalAssignment =
           eligibleUsers.length === 0
             ? {
-                offeredTo: [],
-                assignedTo: WorkItemCommandExecutor.ADMIN_USER_ID
-              }
+              offeredTo: [],
+              assignedTo: WorkItemCommandExecutor.ADMIN_USER_ID
+            }
             : assignmentDecision;
 
         const initialState =
           finalAssignment.assignedTo ? 'CLAIMED' : 'OFFERED';
-console.log('[INFO] finalAssignment...', JSON.parse(JSON.stringify(finalAssignment.offeredTo))
-);
+        console.log('[INFO] finalAssignment...', JSON.parse(JSON.stringify(finalAssignment.offeredTo))
+        );
         /* 2.5 Persist work item */
         const workItemId =
           await this.workItemRepo.insert(tx, {
@@ -135,7 +164,7 @@ console.log('[INFO] finalAssignment...', JSON.parse(JSON.stringify(finalAssignme
             state: initialState,
             taskType: cmd.taskType,
             taskName: cmd.taskName,
-            priority: cmd.priority, 
+            priority: cmd.priority,
             offeredTo: finalAssignment.offeredTo,
             //assigneeId: finalAssignment.assignedTo ?? null,
             context: cmd.contextData ?? {},
@@ -143,7 +172,7 @@ console.log('[INFO] finalAssignment...', JSON.parse(JSON.stringify(finalAssignme
             runId: cmd.runId,
             dueDate: cmd.dueDate
           });
-console.log('[INFO] workItemId...', workItemId);
+        console.log('[INFO] workItemId...', workItemId);
 
         /* 2.6 Audit */
         await this.auditRepo.append(tx, {
@@ -173,13 +202,35 @@ console.log('[INFO] workItemId...', workItemId);
           );
         }
 
-        /* 2.7 Outbox (no payload – Phase-7) */
-       /* await this.outboxRepo.insert(tx, {
-          aggregateId: workItemId,
-          eventType: 'WorkItemCreated'
-        });*/
+        /* 2.7 Outbox - Event Publishing */
+        if (FEATURE_FLAGS.EVENTS_ENABLED) {
+          await this.outboxRepo.insert(tx, {
+            aggregateId: workItemId,
+            aggregateType: 'WorkItem',
+            eventType: 'WorkItemCreated',
+            eventVersion:  '1',
+            payload: JSON.stringify({
+              workItemId,
+              workflowId: cmd.workflowId,
+              runId: cmd.runId,
+              taskName: cmd.taskName,
+              state: initialState,
+              distribution: {
+                offeredTo: finalAssignment.offeredTo,
+                assignedTo: finalAssignment.assignedTo
+              },
+              createdAt: new Date().toISOString()
+            }),
+            occurredAt: new Date()
+          });
 
-        this.logger.info('WorkItem created', { workItemId } );
+          this.logger.debug('Event published to outbox', {
+            workItemId,
+            eventType: 'WorkItemCreated'
+          });
+        }
+
+        this.logger.info('WorkItem created', { workItemId });
         console.log('[DEBUG] WorkItem created', { workItemId } + 'with decision', decision);
 
         return decision;
@@ -188,58 +239,85 @@ console.log('[INFO] workItemId...', workItemId);
       /* -------------------------------------------------
        * 3️⃣ STATE TRANSITIONS (CLAIM / COMPLETE / CANCEL)
        * ------------------------------------------------- */
-      else{
+      else {
         const cmd = command as TransitionWorkItemCommand;
         const workItem =
-        await this.workItemRepo.findById(tx, Number(cmd.workItemId!));
+          await this.workItemRepo.findById(tx, Number(cmd.workItemId!));
 
-      if (!workItem) {
-        throw new Error('WorkItem not found');
-      }
-      //const wi = context.validationContext.workItemID;
-      
-
-      await this.workItemRepo.transitionState(
-        tx,
-        {
-          id: workItem.id,
-          expectedVersion: workItem.version,
-          toState: cmd.targetState,
-          actorId:context.validationContext.actorId,
+        if (!workItem) {
+          throw new Error('WorkItem not found');
         }
-      );
+        //const wi = context.validationContext.workItemID;
 
-      await this.auditRepo.append(tx, {
-        workItemId: workItem.id,
-        action: context.action,
-        fromState: workItem.state,
-        toState: cmd.targetState,
-        actorId:context.validationContext.actorId,
-      });
-      console.log('[INFO] WorkItem particpant table for' ,context.action,'claim ...', workItem.id, 'to', cmd.targetState);
-      if(context.action === 'CLAIM'){
-        console.log('[INFO] Assigning work item to actor...', context.validationContext.actorId, workItem.id);
-      if (context.validationContext.actorId) {
-        await this.participantRepo.assign(
+
+        await this.workItemRepo.transitionState(
           tx,
-          workItem.id,
-          context.validationContext.actorId
+          {
+            id: workItem.id,
+            expectedVersion: workItem.version,
+            toState: cmd.targetState,
+            actorId: context.validationContext.actorId,
+          }
         );
+
+        await this.auditRepo.append(tx, {
+          workItemId: workItem.id,
+          action: context.action,
+          fromState: workItem.state,
+          toState: cmd.targetState,
+          actorId: context.validationContext.actorId,
+        });
+        console.log('[INFO] WorkItem particpant table for', context.action, 'claim ...', workItem.id, 'to', cmd.targetState);
+        if (context.action === 'CLAIM') {
+          console.log('[INFO] Assigning work item to actor...', context.validationContext.actorId, workItem.id);
+          if (context.validationContext.actorId) {
+            await this.participantRepo.assign(
+              tx,
+              workItem.id,
+              context.validationContext.actorId
+            );
+          }
+        }
+
+        /* Event Publishing for State Transitions */
+        if (FEATURE_FLAGS.EVENTS_ENABLED) {
+          const cmd = command as TransitionWorkItemCommand;
+
+          await this.outboxRepo.insert(tx, {
+            aggregateId: workItem.id,
+            aggregateType: 'WorkItem',
+            eventType: `WorkItem${context.action}`,
+            eventVersion: '1',
+            payload: JSON.stringify({
+              workItemId: workItem.id,
+              workflowId: workItem.workflowId,
+              transition: {
+                fromState: workItem.state,
+                toState: cmd.targetState,
+                action: context.action
+              },
+              actor: {
+                id: context.validationContext.actorId,
+                type: 'USER'
+              },
+              occurredAt: new Date().toISOString()
+            }),
+            occurredAt: new Date()
+          });
+
+          this.logger.debug('Event published to outbox', {
+            workItemId: workItem.id,
+            eventType: `WorkItem${context.action}`
+          });
+        }
+
+        this.logger.info('WorkItem transitioned', {
+          workItemId: workItem.id,
+          action: context.action
+        });
+
+        return decision;
       }
-    }
-
-      /*await this.outboxRepo.insert(tx, {
-        aggregateId: wi.id,
-        eventType: `WorkItem${context.action}`
-      });*/
-
-      this.logger.info('WorkItem transitioned', {
-        workItemId: workItem.id,
-        action: context.action
-      });
-
-      return decision;
-    }
     });
   }
 }

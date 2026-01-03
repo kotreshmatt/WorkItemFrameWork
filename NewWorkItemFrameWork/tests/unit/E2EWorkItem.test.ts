@@ -33,6 +33,7 @@ import { LifecycleDefinitionLoader } from '../../packages/domain/workitem/Lifecy
 import { JdbcWorkItemAssignmentRepository } from '../../packages/persistence/repository/jdbcWorkItemAssignmentRepository';
 import { JdbcWorkItemParameterRepository } from '../../packages/persistence/repository/JdbcWorkItemParameterRepository';
 import { JdbcWorkItemParticipantRepository } from '../../packages/persistence/repository/JdbcWorkItemParticipantRepository';
+import { JdbcIdempotencyRepository } from '../../packages/persistence/repository/JdbcIdempotencyRepositroy';
 dotenv.config();
 
 class TestLogger {
@@ -112,6 +113,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         new JdbcWorkItemParticipantRepository(),
         new JdbcWorkItemParameterRepository(),
         new JdbcOutboxRepository,
+        new JdbcIdempotencyRepository(),
         logger
       );
       console.log('[INFO] Test setup completed.');
