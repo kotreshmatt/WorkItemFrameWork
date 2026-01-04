@@ -56,13 +56,20 @@ export class GrpcToCommandMapper {
         };
     }
 
-    static toContext(req: any, action: string) {
+    static toContext(req: any, action: string, targetState?: WorkItemState) {
+        const validationContext: any = {
+            workItemID: req.work_item_id || 0,
+            actorId: req.context?.actor_id || 'system'
+        };
+
+        // Include targetState for transition commands (CLAIM, COMPLETE, CANCEL)
+        if (targetState !== undefined) {
+            validationContext.targetState = targetState;
+        }
+
         return {
             action,
-            validationContext: {
-                workItemID: req.work_item_id || 0,
-                actorId: req.context?.actor_id || 'system'
-            },
+            validationContext,
             idempotencyKey: req.context?.idempotency_key
         };
     }

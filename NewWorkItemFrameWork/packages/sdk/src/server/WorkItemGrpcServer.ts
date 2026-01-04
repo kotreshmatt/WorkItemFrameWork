@@ -70,9 +70,12 @@ export class WorkItemGrpcServer {
     private async createWorkItem(call: any, callback: any) {
         try {
             const req = call.request;
+            console.log('[SDK-SERVER] ========== CREATE WorkItem REQUEST Received from workitem client is ==========',call.request);
 
             const command = GrpcToCommandMapper.toCreateCommand(req);
+            console.log('[SDK-SERVER] Mapped CreateWorkItemCommand:', command);
             const context = GrpcToCommandMapper.toContext(req, 'CREATE');
+            console.log('[SDK-SERVER] Executing CreateWorkItem with command:', context);
 
             // CHANGED: Executor now returns ExecutionResult
             const result = await this.executor.execute(command, context as any);
@@ -126,21 +129,41 @@ export class WorkItemGrpcServer {
         try {
             const req = call.request;
 
-            const command = GrpcToCommandMapper.toTransitionCommand(targetState, req, extraData);
-            const context = GrpcToCommandMapper.toContext(req, action);
+            console.log(`[SDK-SERVER] ========== ${action} WorkItem REQUEST ==========`);
+            console.log(`[SDK-SERVER] Raw gRPC request:`, JSON.stringify(req, null, 2));
+            console.log(`[SDK-SERVER] Action: ${action}, TargetState: ${targetState}`);
 
-            // CHANGED: Executor now returns ExecutionResult
+            // Map gRPC request to command
+            const command = GrpcToCommandMapper.toTransitionCommand(targetState, req, extraData);
+            console.log('[SDK-SERVER] Mapped TransitionCommand:', JSON.stringify(command, null, 2));
+
+            // Map to validation context
+            const context = GrpcToCommandMapper.toContext(req, action, targetState);
+            console.log('[SDK-SERVER] Validation Context:', JSON.stringify(context, null, 2));
+
+            console.log('[SDK-SERVER] Calling executor.execute()...');
+
+            // Execute command through framework
             const result = await this.executor.execute(command, context as any);
 
-            // CHANGED: Extract decision and workItemId from result
+            console.log('[SDK-SERVER] Executor result:', JSON.stringify(result, null, 2));
+
+            // Map result to gRPC response
             const response = CommandToGrpcMapper.toTransitionResponse(
                 result.decision,
                 result.workItemId || req.work_item_id
             );
 
+            console.log('[SDK-SERVER] Mapped gRPC response:', JSON.stringify(response, null, 2));
+            console.log(`[SDK-SERVER] ========== ${action} WorkItem COMPLETE ==========\n`);
+
             callback(null, response);
 
         } catch (err: any) {
+            console.error(`[SDK-SERVER] ========== ${action} WorkItem ERROR ==========`);
+            console.error('[SDK-SERVER] Error:', err);
+            console.error('[SDK-SERVER] Error stack:', err.stack);
+            console.error(`[SDK-SERVER] ========== ERROR END ==========\n`);
             callback(CommandToGrpcMapper.toGrpcError(err));
         }
     }

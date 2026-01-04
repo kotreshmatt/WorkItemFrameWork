@@ -32,6 +32,7 @@ export class WorkItemClient extends EventEmitter {
             config.address,
             config.credentials || grpc.credentials.createInsecure()
         );
+        console.log('[SDK-CLIENT] gRPC client methods:', Object.keys(this.client as any));
     }
 
     // ------------------------------------------------------------
@@ -73,7 +74,7 @@ export class WorkItemClient extends EventEmitter {
         actorId?: string;
         idempotencyKey?: string;
     }): Promise<{ accepted: boolean; workItemId: number; error?: string }> {
-
+        console.log('[SDK-CLIENT] ========== CREATE WorkItem REQUEST ==========', params);
         const request = {
             workflow_id: params.workflowId,
             run_id: params.runId,
@@ -93,7 +94,12 @@ export class WorkItemClient extends EventEmitter {
             lifecycle: params.lifecycle,
             initiated_by: params.initiatedBy,
             initiated_at: (params.initiatedAt || new Date()).toISOString(),
-            parameters: params.parameters || [],
+            parameters: (params.parameters || []).map(p => ({
+                name: p.name,
+                direction: p.direction,
+                mandatory: p.mandatory || false,
+                value_json: JSON.stringify(p.value)
+            })),
             context_data: params.contextData ? JSON.stringify(params.contextData) : undefined,
             due_date: params.dueDate?.toISOString(),
             distribution_strategy: params.distributionStrategy || params.assignmentSpec.strategy,
@@ -103,6 +109,8 @@ export class WorkItemClient extends EventEmitter {
                 idempotency_key: params.idempotencyKey
             }
         };
+
+        console.log('[SDK-CLIENT] gRPC request to be sent:', JSON.stringify(request, null, 2));
 
         return this.invokeRpc('CreateWorkItem', request);
     }
@@ -114,7 +122,9 @@ export class WorkItemClient extends EventEmitter {
         workItemId: number;
         actorId: string;
         idempotencyKey?: string;
-    }): Promise<{ accepted: boolean; state: string; error?: string }> {
+    }): Promise<{ accepted: boolean; workItemId?: number; state: string; error?: string }> {
+        console.log('[SDK-CLIENT] ========== CLAIM WorkItem REQUEST ==========');
+        console.log('[SDK-CLIENT] Input params:', JSON.stringify(params, null, 2));
 
         const request = {
             work_item_id: params.workItemId,
@@ -124,7 +134,15 @@ export class WorkItemClient extends EventEmitter {
             }
         };
 
-        return this.invokeRpc('ClaimWorkItem', request);
+        console.log('[SDK-CLIENT] gRPC request object:', JSON.stringify(request, null, 2));
+        console.log('[SDK-CLIENT] Calling gRPC method: claimWorkItem');
+
+        const response = await this.invokeRpc('claimWorkItem', request);
+
+        console.log('[SDK-CLIENT] gRPC response received:', JSON.stringify(response, null, 2));
+        console.log('[SDK-CLIENT] ========== CLAIM WorkItem COMPLETE ==========\n');
+
+        return response;
     }
 
     /**

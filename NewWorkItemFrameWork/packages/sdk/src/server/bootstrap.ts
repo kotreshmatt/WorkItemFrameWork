@@ -9,11 +9,18 @@ import { JdbcWorkItemParameterRepository } from '../../../persistence/repository
 import { JdbcOutboxRepository } from '../../../persistence/repository/JdbcOutboxRepository';
 import { JdbcIdempotencyRepository } from '../../../persistence/repository/JdbcIdempotencyRepositroy';
 import { AssignmentResolver } from '../../../domain/workitem/assignment/AssignmentResolver';
-import { SimpleAssignmentCandidateResolver } from './SimpleAssignmentCandidateResolver';
+import { JdbcAssignmentCandidateResolver } from '../../../persistence/assignment/JdbcAssignmentCandidateResolver';
 import { AssignmentCandidateResolver } from '../../../domain/workitem/assignment/AssignmentcandidateResolver';
 import strategyRegistry from '../../../domain/workitem/distribution/strategies/DistributionStrategyRegistry';
 import { OfferResolver } from '../../../domain/workitem/distribution/OfferResolver';
 import { WorkItemCommandValidationService } from '../../../domain/workitem/validation-orchestrator/WorkItemCommandValidationService';
+import { StateTransitionValidator } from '../../../domain/workitem/validation/StateTransitionValidator';
+import { AuthorizationValidator } from '../../../domain/workitem/validation/AuthorizationValidator';
+import { AssignmentEligibilityValidator } from '../../../domain/workitem/validation/AssignmentEligibilityValidator';
+import { ParameterValidator } from '../../../domain/workitem/validation/ParameterValidator';
+import { LifecycleValidator } from '../../../domain/workitem/validation/LifecycleValidator';
+import { IdempotencyValidator } from '../../../domain/workitem/validation/IdempotencyValidator';
+import { JdbcOrgModelRepository } from '../../../persistence/repository/JdbcOrgModelRepository';
 import { Pool } from 'pg';
 
 /**
@@ -45,27 +52,29 @@ async function bootstrap() {
     const outboxRepo = new JdbcOutboxRepository();
     const idempotencyRepo = new JdbcIdempotencyRepository();
 
-    // 3. Initialize Domain Services
+    // 3. Initialize Domain Services (matching E2E test setup)
+    const orgRepo = new JdbcOrgModelRepository(pool, logger);
+    const assignmentCandidateResolver = new JdbcAssignmentCandidateResolver(pool, logger);
     const offerResolver = new OfferResolver();
     const assignmentResolver = new AssignmentResolver(strategyRegistry, offerResolver, logger);
-    const assignmentCandidateResolver = new SimpleAssignmentCandidateResolver();
 
-    // 4. Initialize Validators
-    const validators = {
-        workflowValidator: null as any,
-        assignmentValidator: null as any,
-        stateValidator: null as any,
-        eligibilityValidator: null as any,
-        ownershipValidator: null as any
-    };
+    // 4. Initialize Real Validators with proper dependencies (matching E2E test)
+    const stateValidator = new StateTransitionValidator(logger);
+    const authValidator = new AuthorizationValidator(logger);
+    const assignmentRepo = new (await import('../../../persistence/repository/jdbcWorkItemAssignmentRepository')).JdbcWorkItemAssignmentRepository();
+    const eligibilityValidator = new AssignmentEligibilityValidator(orgRepo, assignmentRepo, logger);
+    const paramValidator = new ParameterValidator(logger);
+    const lifecycleLoader = new (await import('../../../domain/workitem/Lifecycle/LifecycleDefinitionLoader')).LifecycleDefinitionLoader();
+    const lifecycleValidator = new LifecycleValidator(logger, lifecycleLoader);
+    const idempotValidator = new IdempotencyValidator(logger);
 
     const validationService = new WorkItemCommandValidationService(
-        validators.stateValidator,      // StateTransitionValidator
-        validators.assignmentValidator, // AuthorizationValidator (mapped to correct var?) Wait, checking types...
-        validators.eligibilityValidator, // AssignmentEligibilityValidator
-        null as any,                    // ParameterValidator
-        null as any,                    // LifecycleValidator
-        null as any,                    // IdempotencyValidator
+        stateValidator,
+        authValidator,
+        eligibilityValidator,
+        paramValidator,
+        lifecycleValidator,
+        idempotValidator,
         logger
     );
     const commandService = new WorkItemCommandService(validationService, logger);

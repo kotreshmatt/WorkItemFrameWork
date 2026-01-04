@@ -43,46 +43,46 @@ describe('WorkItem SDK Integration Tests', () => {
         it('should create WorkItem successfully', async () => {
             const result = await client.createWorkItem({
                 workflowId: 'exception-handling-wf',
-                      runId: 'run1',
-                      taskType: 'Technical-Exception',
-                      taskName: 'Handle exception',
-                      assignmentSpec: {
-                        candidatePositions: ['manager'],
-                        strategy: DistributionStrategyType.DEFAULT,
-                        mode: DistributionMode.PULL
-                      },
-                      lifecycle: 'default',
-                      initiatedBy: 'system',
-                      initiatedAt: new Date(),
-                      parameters: [
-                        {
-                          name: 'request',
-                          direction: 'IN',
-                          //type: 'object',
-                          value: {  errocode: 'ERROR_CODE', errorMessage: 'Error message' }
-                        },
-                        {
-                          name: 'retry',
-                          direction: 'INOUT',
-                          //type: 'boolean',
-                          mandatory: false,
-                          value: null
-                        },
-                        {
-                          name: 'comments',
-                          direction: 'INOUT',
-                          //type: 'string',
-                          mandatory: false,
-                          value: null
-                        },
-                        {
-                          name: 'skiperror',
-                          direction: 'OUT',
-                          //type: 'boolean',
-                          value: null
-                        }
-                      ],
-                      contextData: {  additionalInfo: 'Test work item' }
+                runId: 'run1',
+                taskType: 'Technical-Exception',
+                taskName: 'Handle exception',
+                assignmentSpec: {
+                    candidatePositions: ['manager'],
+                    strategy: DistributionStrategyType.DEFAULT,
+                    mode: DistributionMode.PULL
+                },
+                lifecycle: 'default',
+                initiatedBy: 'system',
+                initiatedAt: new Date(),
+                parameters: [
+                    {
+                        name: 'request',
+                        direction: 'IN',
+                        //type: 'object',
+                        value: { errocode: 'ERROR_CODE', errorMessage: 'Error message' }
+                    },
+                    {
+                        name: 'retry',
+                        direction: 'INOUT',
+                        //type: 'boolean',
+                        mandatory: false,
+                        value: null
+                    },
+                    {
+                        name: 'comments',
+                        direction: 'INOUT',
+                        //type: 'string',
+                        mandatory: false,
+                        value: null
+                    },
+                    {
+                        name: 'skiperror',
+                        direction: 'OUT',
+                        //type: 'boolean',
+                        value: null
+                    }
+                ],
+                contextData: { additionalInfo: 'Test work item' }
             });
 
             expect(result.accepted).toBe(true);
@@ -95,17 +95,47 @@ describe('WorkItem SDK Integration Tests', () => {
 
         beforeEach(async () => {
             const created = await client.createWorkItem({
-                workflowId: 'claim-test-wf',
-                runId: 'claim-run',
-                taskType: 'USER_TASK',
-                taskName: 'ReviewTask',
+                workflowId: 'Claim exception-handling-wf',
+                runId: 'rClaim-run1',
+                taskType: 'Technical-Exception',
+                taskName: 'Handle exception',
+                assignmentSpec: {
+                    candidatePositions: ['manager'],
+                    strategy: DistributionStrategyType.DEFAULT,
+                    mode: DistributionMode.PULL
+                },
                 lifecycle: 'default',
                 initiatedBy: 'system',
-                assignmentSpec: {
-                    candidateUsers: ['user1', 'user2'],
-                    strategy: 'OFFER_TO_ALL',
-                    mode: 'PULL'
-                }
+                initiatedAt: new Date(),
+                parameters: [
+                    {
+                        name: 'request',
+                        direction: 'IN',
+                        //type: 'object',
+                        value: { errocode: 'ERROR_CODE', errorMessage: 'Error message' }
+                    },
+                    {
+                        name: 'retry',
+                        direction: 'INOUT',
+                        //type: 'boolean',
+                        mandatory: false,
+                        value: null
+                    },
+                    {
+                        name: 'comments',
+                        direction: 'INOUT',
+                        //type: 'string',
+                        mandatory: false,
+                        value: null
+                    },
+                    {
+                        name: 'skiperror',
+                        direction: 'OUT',
+                        //type: 'boolean',
+                        value: null
+                    }
+                ],
+                contextData: { additionalInfo: 'Test work item' }
             });
             workItemId = created.workItemId!;
         });
@@ -116,6 +146,7 @@ describe('WorkItem SDK Integration Tests', () => {
                 actorId: 'user1'
             });
 
+            console.log('[TEST] Claim result:', result);
             expect(result.accepted).toBe(true);
             expect(result.state).toBe('CLAIMED');
         });

@@ -41,29 +41,57 @@ message WorkItemResponse {
 // Requests
 // ------------------------------------------------------------
 
-message CreateWorkItemRequest {
-  string workflow_id = 1;
-  string task_name = 2;
-  string run_id = 3; // Optional temporal run ID
-  
-  // JSON stringified parameters map<string, any>
-  // Handled as string to preserve flexibility/typing in TS
-  string parameters_json = 4; 
-  
-  // Assignment specification
-  AssignmentSpec assignment = 5;
-  
-  // Distribution configuration (Per-task config)
-  string distribution_mode = 6;     // "PUSH" | "PULL"
-  string distribution_strategy = 7; // "OFFER_TO_ALL" | "ROUND_ROBIN" | ...
-
-  CommandContext context = 8;
+message Parameter {
+  string name = 1;
+  string direction = 2;  // 'IN' | 'OUT' | 'INOUT'
+  bool mandatory = 3;
+  string value_json = 4;  // JSON stringified value
 }
 
 message AssignmentSpec {
   repeated string candidate_users = 1;
   repeated string candidate_groups = 2;
-  repeated string excluded_users = 3;
+  repeated string candidate_positions = 3;
+  repeated string candidate_org_units = 4;
+  string strategy = 5;
+  string mode = 6;  // 'PULL' | 'PUSH'
+  string separation_of_duties_key = 7;
+}
+
+message CreateWorkItemRequest {
+  // Core identification
+  string workflow_id = 1;
+  string run_id = 2;
+  string task_type = 3;
+  string task_name = 4;
+  
+  // Optional metadata
+  string description = 5;
+  int32 priority = 6;
+  
+  // Assignment specification
+  AssignmentSpec assignment_spec = 7;
+  
+  // Lifecycle and actor info
+  string lifecycle = 8;
+  string initiated_by = 9;
+  string initiated_at = 10;  // ISO 8601 timestamp
+  
+  // Parameters as structured array
+  repeated Parameter parameters = 11;
+  
+  // Context data as JSON string
+  string context_data = 12;
+  
+  // Optional deadline
+  string due_date = 13;  // ISO 8601 timestamp
+  
+  // Distribution config (for backward compatibility)
+  string distribution_strategy = 14;
+  string distribution_mode = 15;
+  
+  // Context
+  CommandContext context = 16;
 }
 
 message ClaimWorkItemRequest {

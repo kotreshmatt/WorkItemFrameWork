@@ -24,6 +24,7 @@ import { JdbcWorkItemParticipantRepository } from '../repository/JdbcWorkItemPar
 import { JdbcWorkItemParameterRepository } from '../repository/JdbcWorkItemParameterRepository';
 import { JdbcIdempotencyRepository } from '../repository/JdbcIdempotencyRepositroy';
 import { FEATURE_FLAGS } from '../../config/FeatureFlags';
+import { JdbcAssignmentCandidateResolver } from '../assignment/JdbcAssignmentCandidateResolver';
 
 /**
  * Phase-4 executor
@@ -42,7 +43,7 @@ export class WorkItemCommandExecutor {
   constructor(
     private readonly uow: JdbcPersistenceUnitOfWork,
     private readonly commandService: WorkItemCommandService, // Phase-3
-    private readonly assignmentCandidateResolver: AssignmentCandidateResolver, // Phase-4
+    private readonly assignmentCandidateResolver: JdbcAssignmentCandidateResolver, // Phase-4
     private readonly assignmentResolver: AssignmentResolver, // Phase-2
     private readonly workItemRepo: JdbcWorkItemRepository,
     private readonly auditRepo: JdbcWorkItemAuditRepository,
@@ -129,6 +130,7 @@ export class WorkItemCommandExecutor {
 
 
         /* 2.1 Resolve assignment candidates (DB) */
+        console.log('[INFO] Resolving assignment candidates for spec...', cmd.assignmentSpec);
         const eligibleUsers =
           await this.assignmentCandidateResolver.resolve(cmd.assignmentSpec);
         console.log('[INFO] assignmentCandidateResolver result...', eligibleUsers);
