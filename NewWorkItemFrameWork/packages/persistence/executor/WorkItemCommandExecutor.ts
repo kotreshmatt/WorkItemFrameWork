@@ -9,6 +9,7 @@ import { Logger } from '../../domain/common/logging';
 
 import { CommandDecision } from '../../domain/workitem/results/CommandDecision';
 import { ValidationResult } from '../../domain/workitem/validation/ValidationResult';
+import { ExecutionResult } from '../../domain/workitem/results/ExecutionResult';
 import { CreateWorkItemCommand } from '../../domain/workitem/commands/CreateWorkItemCommand';
 import { TransitionWorkItemCommand } from '../../domain/workitem/commands/TransitionWorkItemCommand';
 
@@ -59,7 +60,7 @@ export class WorkItemCommandExecutor {
       validationContext: any;
       idempotencyKey?: string; // Optional - for duplicate detection
     }
-  ): Promise<CommandDecision> {
+  ): Promise<ExecutionResult> {
 
     return this.uow.withTransaction(async (tx) => {
       this.logger.info('TX started', { action: context.action });
@@ -83,9 +84,11 @@ export class WorkItemCommandExecutor {
             idempotencyKey: context.idempotencyKey,
             action: context.action
           });
-          return CommandDecision.rejected(
-            ValidationResult.fail('Duplicate command detected')
-          );
+          return {
+            decision: CommandDecision.rejected(
+              ValidationResult.fail('Duplicate command detected')
+            )
+          };
         }
       }
       if (context.action != 'CREATE') {
@@ -109,7 +112,7 @@ export class WorkItemCommandExecutor {
       console.log('[INFO] Command accepted', decision);
       if (!decision.accepted) {
         this.logger.info('Command rejected');
-        return decision;
+        return { decision };
       }
 
       console.log('[INFO] Command accepted', decision);
@@ -208,7 +211,7 @@ export class WorkItemCommandExecutor {
             aggregateId: workItemId,
             aggregateType: 'WorkItem',
             eventType: 'WorkItemCreated',
-            eventVersion:  '1',
+            eventVersion: '1',
             payload: JSON.stringify({
               workItemId,
               workflowId: cmd.workflowId,
@@ -233,7 +236,7 @@ export class WorkItemCommandExecutor {
         this.logger.info('WorkItem created', { workItemId });
         console.log('[DEBUG] WorkItem created', { workItemId } + 'with decision', decision);
 
-        return decision;
+        return { decision, workItemId };
       }
 
       /* -------------------------------------------------
@@ -316,7 +319,7 @@ export class WorkItemCommandExecutor {
           action: context.action
         });
 
-        return decision;
+        return { decision, workItemId: workItem.id };
       }
     });
   }

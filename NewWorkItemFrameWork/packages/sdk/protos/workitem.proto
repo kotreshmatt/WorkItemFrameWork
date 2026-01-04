@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package workitem.v1;
+
+// Service Definition
+service WorkItemService {
+  // Create a new WorkItem
+  rpc CreateWorkItem (CreateWorkItemRequest) returns (WorkItemResponse);
+
+  // Claim a WorkItem (assign to user)
+  rpc ClaimWorkItem (ClaimWorkItemRequest) returns (WorkItemResponse);
+
+  // Complete a WorkItem (success)
+  rpc CompleteWorkItem (CompleteWorkItemRequest) returns (WorkItemResponse);
+
+  // Cancel a WorkItem (failure/abort)
+  rpc CancelWorkItem (CancelWorkItemRequest) returns (WorkItemResponse);
+
+  // Get WorkItem details
+  rpc GetWorkItem (GetWorkItemRequest) returns (WorkItemDetailsResponse);
+}
+
+// ------------------------------------------------------------
+// Common Types
+// ------------------------------------------------------------
+
+message CommandContext {
+  string actor_id = 1;
+  string tenant_id = 2; // Optional, for context
+  string idempotency_key = 3; // For idempotent retries
+}
+
+message WorkItemResponse {
+  bool accepted = 1;
+  string message = 2; // Error message if not accepted
+  int32 work_item_id = 3;
+  string state = 4;
+}
+
+// ------------------------------------------------------------
+// Requests
+// ------------------------------------------------------------
+
+message CreateWorkItemRequest {
+  string workflow_id = 1;
+  string task_name = 2;
+  string run_id = 3; // Optional temporal run ID
+  
+  // JSON stringified parameters map<string, any>
+  // Handled as string to preserve flexibility/typing in TS
+  string parameters_json = 4; 
+  
+  // Assignment specification
+  AssignmentSpec assignment = 5;
+  
+  // Distribution configuration (Per-task config)
+  string distribution_mode = 6;     // "PUSH" | "PULL"
+  string distribution_strategy = 7; // "OFFER_TO_ALL" | "ROUND_ROBIN" | ...
+
+  CommandContext context = 8;
+}
+
+message AssignmentSpec {
+  repeated string candidate_users = 1;
+  repeated string candidate_groups = 2;
+  repeated string excluded_users = 3;
+}
+
+message ClaimWorkItemRequest {
+  int32 work_item_id = 1;
+  CommandContext context = 2;
+}
+
+message CompleteWorkItemRequest {
+  int32 work_item_id = 1;
+  string output_json = 2; // JSON stringified output
+  CommandContext context = 3;
+}
+
+message CancelWorkItemRequest {
+  int32 work_item_id = 1;
+  string reason = 2;
+  CommandContext context = 3;
+}
+
+message GetWorkItemRequest {
+  int32 work_item_id = 1;
+}
+
+message WorkItemDetailsResponse {
+  bool found = 1;
+  int32 work_item_id = 2;
+  string workflow_id = 3;
+  string task_name = 4;
+  string state = 5;
+  string created_at = 6;
+  string assigned_to = 7; // User ID if assigned
+  repeated string offered_to = 8; // List of users offered to
+  string parameters_json = 9;
+  string output_json = 10;
+}

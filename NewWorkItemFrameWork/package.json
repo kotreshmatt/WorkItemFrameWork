@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "workspaces": [
+    "packages/*"
+  ],
   "directories": {
     "doc": "docs",
     "test": "jest --config jest.config.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "dev:server": "tsx watch packages/sdk/src/server/bootstrap.ts",
+    "start:server": "tsx packages/sdk/src/server/bootstrap.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,9 +26,12 @@
     "dotenv": "^17.2.3",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "pg": "^8.16.3"
   }
 }

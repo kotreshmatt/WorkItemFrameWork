@@ -1,0 +1,25 @@
+{
+    "name": "@workitem-framework/sdk",
+    "version": "1.0.0",
+    "type": "commonjs",
+    "description": "gRPC SDK for WorkItem Framework",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "proto:generate": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=generated --grpc_out=grpc_js:generated --js_out=import_style=commonjs,binary:generated -I ./protos protos/*.proto",
+        "dev:server": "../../node_modules/.bin/ts-node src/server/bootstrap.ts",
+        "start:server": "node dist/server/bootstrap.js"
+    },
+    "dependencies": {
+        "@grpc/grpc-js": "^1.9.0",
+        "@grpc/proto-loader": "^0.7.10"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "grpc-tools": "^1.12.4",
+        "grpc_tools_node_protoc_ts": "^5.3.3",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.0"
+    }
+}

@@ -31,7 +31,11 @@ describe('Create WorkItem transaction', () => {
 
       await outboxRepo.insert(tx, {
         aggregateId: workItemId,
-        eventType: 'WorkItemCreated'
+        aggregateType: 'WorkItem',
+        eventType: 'WorkItemCreated',
+        eventVersion: '1',
+        payload: JSON.stringify({}),
+        occurredAt: new Date()
       });
     });
 

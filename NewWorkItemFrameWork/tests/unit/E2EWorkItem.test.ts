@@ -174,7 +174,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         validationContext: {}
       });
     console.log('[DEBUG] Create Decision:', createDecision);
-    expect(createDecision.accepted).toBe(true);
+    expect(createDecision.decision.accepted).toBe(true);
 
     const wiRow = await pool.query(
       `SELECT * FROM work_items WHERE workflow_id = $1`,
@@ -203,7 +203,7 @@ describe('E2E WorkItem lifecycle (Postgres)', () => {
         }
       });
 console.log('[DEBUG] Claim Decision:', claimDecision);
-    expect(claimDecision.accepted).toBe(true);
+    expect(claimDecision.decision.accepted).toBe(true);
 
     // COMPLETE
     const completeCmd: TransitionWorkItemCommand = {
@@ -223,7 +223,7 @@ console.log('[DEBUG] Claim Decision:', claimDecision);
         }
       });
     console.log('[DEBUG] Complete Decision:', completeDecision);
-    expect(completeDecision.accepted).toBe(true);
+    expect(completeDecision.decision.accepted).toBe(true);
 
     /* // CANCEL (new WI)
     const cancelCreate =
