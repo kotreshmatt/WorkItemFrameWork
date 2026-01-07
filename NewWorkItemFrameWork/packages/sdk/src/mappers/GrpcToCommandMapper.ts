@@ -56,7 +56,7 @@ export class GrpcToCommandMapper {
         };
     }
 
-    static toContext(req: any, action: string, targetState?: WorkItemState) {
+    static toContext(req: any, action: string, targetState?: WorkItemState, command?: any) {
         const validationContext: any = {
             workItemID: req.work_item_id || 0,
             actorId: req.context?.actor_id || 'system'
@@ -65,6 +65,11 @@ export class GrpcToCommandMapper {
         // Include targetState for transition commands (CLAIM, COMPLETE, CANCEL)
         if (targetState !== undefined) {
             validationContext.targetState = targetState;
+        }
+
+        // Include parameters from command (for COMPLETE output parameters)
+        if (command?.parameters) {
+            validationContext.parameters = command.parameters;
         }
 
         return {

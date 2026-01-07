@@ -9,7 +9,7 @@ export class JdbcWorkItemRepository {
 
   constructor(
     private readonly logger: Logger
-  ) {}
+  ) { }
 
   /**
    * Insert a new WorkItem.
@@ -55,10 +55,10 @@ export class JdbcWorkItemRepository {
           JSON.stringify(row.offeredTo ?? []),
           row.runId,
           row.dueDate ?? null,
-          
+
           JSON.stringify(row.context ?? {}),
-          JSON.stringify(row.parameters ?? {})
-          
+          JSON.stringify(row.parameters ?? [])  // pg driver needs string for JSONB
+
         ]
       );
 
@@ -91,7 +91,7 @@ export class JdbcWorkItemRepository {
       if (result.rowCount === 0) {
         return null;
       }
-
+console.log('[DEBUG] Found WorkItem:', result.rows[0]);
       return result.rows[0];
 
     } catch (e: unknown) {

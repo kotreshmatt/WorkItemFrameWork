@@ -98,7 +98,7 @@ export class WorkItemClient extends EventEmitter {
                 name: p.name,
                 direction: p.direction,
                 mandatory: p.mandatory || false,
-                value_json: JSON.stringify(p.value)
+                value: p.value != null ? JSON.stringify(p.value) : null
             })),
             context_data: params.contextData ? JSON.stringify(params.contextData) : undefined,
             due_date: params.dueDate?.toISOString(),

@@ -45,7 +45,7 @@ message Parameter {
   string name = 1;
   string direction = 2;  // 'IN' | 'OUT' | 'INOUT'
   bool mandatory = 3;
-  string value_json = 4;  // JSON stringified value
+  string value = 4;  // JSON stringified value
 }
 
 message AssignmentSpec {

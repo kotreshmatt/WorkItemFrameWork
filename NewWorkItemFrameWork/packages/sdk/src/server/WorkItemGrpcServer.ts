@@ -70,7 +70,7 @@ export class WorkItemGrpcServer {
     private async createWorkItem(call: any, callback: any) {
         try {
             const req = call.request;
-            console.log('[SDK-SERVER] ========== CREATE WorkItem REQUEST Received from workitem client is ==========',call.request);
+            console.log('[SDK-SERVER] ========== CREATE WorkItem REQUEST Received from workitem client is ==========', call.request);
 
             const command = GrpcToCommandMapper.toCreateCommand(req);
             console.log('[SDK-SERVER] Mapped CreateWorkItemCommand:', command);

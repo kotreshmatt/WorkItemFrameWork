@@ -11,7 +11,7 @@ export class JdbcWorkItemParameterRepository {
       direction: 'IN' | 'OUT' | 'INOUT';
       mandatory?: boolean;
       value?: unknown;
-      
+
     }>
   ): Promise<void> {
 
@@ -23,7 +23,7 @@ export class JdbcWorkItemParameterRepository {
         [
           workItemId,
           p.name,
-          p.value ?? null,
+          JSON.stringify(p.value ?? null),  // pg driver needs string for JSONB
           p.direction,
           p.mandatory ?? false
         ]

@@ -96,6 +96,7 @@ export class WorkItemCommandExecutor {
         console.log('[INFO] Fetching work item ', context.validationContext.workItemID + 'for action...', context.action);
         const workItem =
           await this.workItemRepo.findById(tx, context.validationContext.workItemID);
+        console.log('[INFO] Fetched work item ...', workItem);
 
         if (!workItem) {
           throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
@@ -104,6 +105,13 @@ export class WorkItemCommandExecutor {
           context.validationContext.workItem = workItem;
         }
       }
+      console.log('[INFO] Validation Context passed to decide...', context.validationContext);
+
+      // Add command parameters to validation context (for COMPLETE output params)
+      if ((command as any).parameters) {
+        context.validationContext.parameters = (command as any).parameters;
+      }
+console.log('[INFO] Calling decide for action...', context);
       const decision =
         await this.commandService.decide(tx, {
           action: context.action,

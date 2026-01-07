@@ -42,7 +42,7 @@ describe('WorkItem SDK Integration Tests', () => {
     describe('CREATE WorkItem', () => {
         it('should create WorkItem successfully', async () => {
             const result = await client.createWorkItem({
-                workflowId: 'exception-handling-wf',
+                workflowId: 'exception-handling-wf07012026',
                 runId: 'run1',
                 taskType: 'Technical-Exception',
                 taskName: 'Handle exception',
@@ -189,10 +189,11 @@ describe('WorkItem SDK Integration Tests', () => {
         it('should complete claimed WorkItem', async () => {
             const result = await client.completeWorkItem({
                 workItemId,
-                output: {
-                    result: 'approved',
-                    comments: 'LGTM'
-                },
+                output: [
+                    { name: 'retry', value: false },
+                    { name: 'comments', value: 'Task completed successfully' },
+                    { name: 'skiperror', value: false }
+                ],
                 actorId: 'user1'
             });
 
@@ -229,6 +230,87 @@ describe('WorkItem SDK Integration Tests', () => {
 
             expect(result.accepted).toBe(true);
             expect(result.state).toBe('CANCELLED');
+        });
+    });
+
+    // ===========================================================================
+    // PARAMETER VALIDATION TESTS
+    // ===========================================================================
+    describe('Parameter Validation on COMPLETE', () => {
+        let workItemId: number;
+
+        beforeEach(async () => {
+            // Create work item with defined parameters
+            const created = await client.createWorkItem({
+                workflowId: 'validation-wf',
+                runId: 'run-validation-' + Date.now(),
+                taskType: 'Technical-Exception',
+                taskName: 'Handle exception with parameters',
+                assignmentSpec: {
+                    candidatePositions: ['manager'],
+                    strategy: DistributionStrategyType.DEFAULT,
+                    mode: DistributionMode.PULL
+                },
+                lifecycle: 'default',
+                initiatedBy: 'system',
+                initiatedAt: new Date(),
+                parameters: [
+                    { name: 'request', direction: 'IN', value: { error: 'ERR_001' }, mandatory: true },
+                    { name: 'retry', direction: 'INOUT', mandatory: false, value: null },
+                    { name: 'comments', direction: 'INOUT', mandatory: false, value: null },
+                    { name: 'skiperror', direction: 'OUT', mandatory: true, value: null }
+                ],
+                contextData: { test: 'validation' }
+            });
+
+            workItemId = created.workItemId!;
+
+            // Claim the work item first
+            await client.claimWorkItem({ workItemId, actorId: 'user1' });
+        });
+
+        it('should reject unknown parameter', async () => {
+            const result = await client.completeWorkItem({
+                workItemId,
+                output: [{ name: 'unknownParam', value: 'test' }],
+                actorId: 'user1'
+            });
+            expect(result.accepted).toBe(false);
+            expect(result.error).toContain('Unknown parameter');
+        });
+
+        it('should reject IN parameter as output', async () => {
+            const result = await client.completeWorkItem({
+                workItemId,
+                output: [{ name: 'request', value: { error: 'NEW' } }],
+                actorId: 'user1'
+            });
+            expect(result.accepted).toBe(false);
+            expect(result.error).toContain('direction IN');
+        });
+
+        it('should require mandatory OUT parameter', async () => {
+            const result = await client.completeWorkItem({
+                workItemId,
+                output: [{ name: 'retry', value: false }],
+                actorId: 'user1'
+            });
+            expect(result.accepted).toBe(false);
+            expect(result.error).toContain('Mandatory');
+        });
+
+        it('should accept valid output parameters', async () => {
+            const result = await client.completeWorkItem({
+                workItemId,
+                output: [
+                    { name: 'retry', value: false },
+                    { name: 'comments', value: 'Completed' },
+                    { name: 'skiperror', value: true }
+                ],
+                actorId: 'user1'
+            });
+            expect(result.accepted).toBe(true);
+            expect(result.state).toBe('COMPLETED');
         });
     });
 
