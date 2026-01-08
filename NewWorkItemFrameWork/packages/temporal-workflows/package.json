@@ -1,0 +1,23 @@
+{
+    "name": "@workitem/temporal-workflows",
+    "version": "1.0.0",
+    "description": "Temporal workflows for WorkItem Framework",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "build.watch": "tsc --watch",
+        "worker": "ts-node src/worker.ts",
+        "start-workflow": "ts-node src/start-workflow.ts"
+    },
+    "dependencies": {
+        "@temporalio/workflow": "^1.8.0",
+        "@temporalio/activity": "^1.8.0",
+        "@temporalio/worker": "^1.8.0",
+        "@workitem-framework/sdk": "file:../sdk"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "ts-node": "^10.9.1",
+        "@types/node": "^20.0.0"
+    }
+}

@@ -43,5 +43,14 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist",
+
+    // IMPORTANT: let these packages compile with their own tsconfig.json
+    "packages/gateway/**",
+    "packages/temporal-workflows/**"
+  ]
 }
