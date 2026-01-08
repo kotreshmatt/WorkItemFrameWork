@@ -99,7 +99,15 @@ export class WorkItemCommandExecutor {
         console.log('[INFO] Fetched work item ...', workItem);
 
         if (!workItem) {
-          throw new Error(`WorkItem ${context.validationContext.workItemId} not found`);
+          this.logger.warn('Work item not found', {
+            workItemId: context.validationContext.workItemID,
+            action: context.action
+          });
+          return {
+            decision: CommandDecision.rejected(
+              ValidationResult.fail(`WorkItem ${context.validationContext.workItemID} not found`)
+            )
+          };
         }
         else {
           context.validationContext.workItem = workItem;
@@ -111,7 +119,7 @@ export class WorkItemCommandExecutor {
       if ((command as any).parameters) {
         context.validationContext.parameters = (command as any).parameters;
       }
-console.log('[INFO] Calling decide for action...', context);
+      console.log('[INFO] Calling decide for action...', context);
       const decision =
         await this.commandService.decide(tx, {
           action: context.action,
@@ -258,7 +266,15 @@ console.log('[INFO] Calling decide for action...', context);
           await this.workItemRepo.findById(tx, Number(cmd.workItemId!));
 
         if (!workItem) {
-          throw new Error('WorkItem not found');
+          this.logger.warn('Work item not found during persistence', {
+            workItemId: cmd.workItemId,
+            action: 'PERSIST'
+          });
+          return {
+            decision: CommandDecision.rejected(
+              ValidationResult.fail(`WorkItem ${cmd.workItemId} not found`)
+            )
+          };
         }
         //const wi = context.validationContext.workItemID;
 

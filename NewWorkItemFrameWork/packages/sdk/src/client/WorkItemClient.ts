@@ -202,7 +202,7 @@ export class WorkItemClient extends EventEmitter {
                     accepted: response.accepted,
                     workItemId: response.work_item_id,
                     state: response.state,
-                    error: response.message
+                    message: response.message
                 });
             });
         });

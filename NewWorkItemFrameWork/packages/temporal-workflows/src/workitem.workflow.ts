@@ -77,30 +77,30 @@ export async function workItemWorkflow(input: WorkItemWorkflowInput): Promise<vo
     console.log(`[Workflow] Work item ${workItemId} created successfully`);
 
     // Step 2: Register update handlers (called by Gateway from external apps)
-    setHandler(claimWorkItem, async ({ userId }) => {
+    setHandler(claimWorkItem, async ({ workItemId, userId }) => {
         console.log(`[Workflow] Claim update received for work item ${workItemId} by ${userId}`);
         return await callSDK({
             action: 'claim',
-            workItemId,
+            workItemId: workItemId,
             userId
         });
     });
 
-    setHandler(completeWorkItem, async ({ userId, output }) => {
+    setHandler(completeWorkItem, async ({ workItemId, userId, output }) => {
         console.log(`[Workflow] Complete update received for work item ${workItemId} by ${userId}`);
         return await callSDK({
             action: 'complete',
-            workItemId,
+            workItemId: workItemId,
             userId,
             output
         });
     });
 
-    setHandler(cancelWorkItem, async ({ userId, reason }) => {
+    setHandler(cancelWorkItem, async ({ workItemId, userId, reason }) => {
         console.log(`[Workflow] Cancel update received for work item ${workItemId} by ${userId}`);
         return await callSDK({
             action: 'cancel',
-            workItemId,
+            workItemId: workItemId,
             userId,
             reason
         });
