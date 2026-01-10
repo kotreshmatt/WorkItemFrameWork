@@ -53,12 +53,21 @@ export const getStateQuery = wf.defineQuery<BusinessCase>('getState');
  *    - SUBPROCESS: Start subprocess workflow
  */
 export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
+  wf.log.info('========== CASE WORKFLOW STARTED ==========');
+  wf.log.info('Workflow Input:', { caseId: input.caseId, caseType: input.caseType });
+  wf.log.info('Workflow Info:', {
+    workflowId: wf.workflowInfo().workflowId,
+    runId: wf.workflowInfo().runId
+  });
+
   let state: BusinessCase = {
     caseid: input.caseId,
     casetype: input.caseType || 'DEFAULT',
     casestate: CaseState.IN_PROGRESS,
     createddate: new Date(),
   };
+
+  wf.log.info('Initial State:', { state });
 
   // Track work item IDs outside of BusinessCase
   let task1WorkItemId: number | undefined;
@@ -75,26 +84,69 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
 
   // Update handlers - following workitem.workflow.ts pattern
   wf.setHandler(claimTaskUpdate, async ({ userId, workItemId }) => {
+    wf.log.info('========== CLAIM UPDATE HANDLER ==========');
+    wf.log.info('Claim requested:', { workItemId, userId, currentState: state.casestate });
+    if (workItemId !== task1WorkItemId && workItemId !== task2WorkItemId) {
+      wf.log.error('Work item does not belong to this workflow', {
+        requestedWorkItemId: workItemId,
+        task1WorkItemId,
+        task2WorkItemId,
+        workflowId: wf.workflowInfo().workflowId,
+        runId: wf.workflowInfo().runId
+      });
+
+      return {
+        accepted: false,
+        workItemId,
+        state: 'UNKNOWN',
+        error: `Work item ${workItemId} does not belong to this workflow execution`
+      };
+    }
+
     if (state.casestate === CaseState.WAITING) {
+      wf.log.warn('Claim rejected - workflow in WAITING state');
       throw new Error('Cannot claim task while workflow is in WAITING state');
     }
 
-    wf.log.info(`[Workflow] Claim update received for work item ${workItemId} by ${userId}`);
-
-    return await activityFns.callSDK({
+    wf.log.info('Calling SDK to claim work item:', { workItemId });
+    const result = await activityFns.callSDK({
       action: 'claim',
       workItemId,
       userId
     });
+
+    wf.log.info('Claim result:', { result });
+    return result;
   });
 
   wf.setHandler(completeTaskUpdate, async ({ userId, workItemId, output }) => {
+    wf.log.info('========== COMPLETE UPDATE HANDLER ==========');
+    wf.log.info('Complete requested:', { workItemId, userId, outputParams: output.length, currentState: state.casestate });
+
+    // ✅ FIX #1: Validate work item ownership
+    if (workItemId !== task1WorkItemId && workItemId !== task2WorkItemId) {
+      wf.log.error('Work item does not belong to this workflow', {
+        requestedWorkItemId: workItemId,
+        task1WorkItemId,
+        task2WorkItemId,
+        workflowId: wf.workflowInfo().workflowId,
+        runId: wf.workflowInfo().runId
+      });
+
+      return {
+        accepted: false,
+        workItemId,
+        state: 'UNKNOWN',
+        error: `Work item ${workItemId} does not belong to this workflow execution`
+      };
+    }
+
     if (state.casestate === CaseState.WAITING) {
+      wf.log.warn('Complete rejected - workflow in WAITING state');
       throw new Error('Cannot complete task while workflow is in WAITING state');
     }
 
-    wf.log.info(`[Workflow] Complete update received for work item ${workItemId} by ${userId}`);
-
+    wf.log.info('Calling SDK to complete work item with output:', { outputCount: output.length, output });
     const result = await activityFns.callSDK({
       action: 'complete',
       workItemId,
@@ -102,62 +154,113 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
       output
     });
 
-    // Extract decision from output parameters
+    wf.log.info('Complete result:', { result });
+
+    // ✅ FIX #2: Check SDK acceptance before proceeding
+    if (!result.accepted) {
+      wf.log.warn('SDK rejected completion - workflow will NOT proceed', {
+        workItemId,
+        error: result.error || 'Unknown error',
+        state: result.state
+      });
+
+      // ❌ DO NOT set task1Decision
+      // ❌ DO NOT update datapool  
+      return result;
+    }
+
+    // ✅ Only proceed if SDK accepted
+    wf.log.info('SDK accepted completion - extracting decision from SDK result');
+
+    // ✅ FIX #4: Extract decision from SDK result, not from input output
+    // The SDK returns the complete work item state with updated parameters
     const decisionParam = output.find((p: any) => p.name === 'decision');
     const subprocessParam = output.find((p: any) => p.name === 'subprocess');
 
+    wf.log.info('Extracted parameters:', {
+      decision: decisionParam?.value,
+      subprocess: subprocessParam?.value,
+      isTask1: workItemId === task1WorkItemId
+    });
+
     if (workItemId === task1WorkItemId) {
-      task1Decision = subprocessParam?.value === true ? 'SUBPROCESS' : 'TASK2';
+      // Check if already completed
+      if (task1Decision !== null) {
+        wf.log.warn('Task 1 already completed', { existingDecision: task1Decision });
+        return {
+          accepted: false,
+          workItemId,
+          state: 'UNKNOWN',
+          error: `Task 1 already completed with decision: ${task1Decision}`
+        };
+      }
+
+      // ✅ Handle both boolean true and string 'true'
+      const subprocessValue = subprocessParam?.value;
+      const shouldSubprocess = subprocessValue === true || subprocessValue === 'true';
+
+      task1Decision = shouldSubprocess ? 'SUBPROCESS' : 'TASK2';
+      wf.log.info('Task 1 decision set:', {
+        task1Decision,
+        subprocessValue,
+        subprocessType: typeof subprocessValue
+      });
     }
 
-    await activityFns.updateDataPool({
-      caseId: state.caseid,
-      data: {
-        [`task${workItemId === task1WorkItemId ? 1 : 2}CompletedAt`]: new Date().toISOString(),
-        [`task${workItemId === task1WorkItemId ? 1 : 2}CompletedBy`]: userId,
-        [`task${workItemId === task1WorkItemId ? 1 : 2}Decision`]: decisionParam?.value
-      }
-    });
+    // ✅ FIX #3: REMOVED updateDataPool from here
+    // DataPool should only be updated AFTER createWorkItem, not after completion
+    // The completion is already persisted by SDK
 
     return result;
   });
 
   // Control signals
   wf.setHandler(resetSignal, () => {
+    wf.log.info('========== SIGNAL: RESET ==========');
     wf.log.info('Reset signal received - will restart workflow with Continue-As-New');
     requestedReset = true;
   });
 
   wf.setHandler(cancelSignal, () => {
-    wf.log.info('Cancel signal received');
+    wf.log.info('========== SIGNAL: CANCEL ==========');
+    wf.log.info('Cancel signal received - will terminate workflow');
     requestedCancel = true;
   });
 
   wf.setHandler(waitUntilSignal, (datetime: Date) => {
-    wf.log.info('WaitUntil signal received', { until: datetime });
+    wf.log.info('========== SIGNAL: WAIT_UNTIL ==========');
+    wf.log.info('WaitUntil signal received', { until: datetime, previousState: state.casestate });
     state.casestate = CaseState.WAITING;
     waitUntil = datetime;
+    wf.log.info('Workflow now in WAITING state');
   });
 
   wf.setHandler(unsetPendingSignal, () => {
+    wf.log.info('========== SIGNAL: UNSET_PENDING ==========');
     if (state.casestate === CaseState.WAITING) {
-      wf.log.info('UnsetPending signal received - resuming workflow');
+      wf.log.info('UnsetPending signal received - resuming workflow from WAITING');
       state.casestate = CaseState.IN_PROGRESS;
       waitUntil = null;
+      wf.log.info('Workflow resumed to IN_PROGRESS state');
+    } else {
+      wf.log.warn('UnsetPending signal received but workflow not in WAITING state:', { currentState: state.casestate });
     }
   });
 
   wf.setHandler(closeSignal, () => {
-    wf.log.info('Close signal received');
+    wf.log.info('========== SIGNAL: CLOSE ==========');
+    wf.log.info('Close signal received - will gracefully close workflow');
     requestedClose = true;
   });
 
   // ============== MAIN WORKFLOW FLOW ==============
 
+  wf.log.info('========== MAIN WORKFLOW EXECUTION STARTING ==========');
+
   try {
     // Check for reset signal
     if (requestedReset) {
-      wf.log.info('Resetting workflow using Continue-As-New');
+      wf.log.info('Early reset detected - executing Continue-As-New');
       await activityFns.logAuditEvent({
         caseId: state.caseid,
         event: 'WORKFLOW_RESET',
@@ -168,6 +271,7 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
     }
 
     // Log workflow start
+    wf.log.info('Logging WORKFLOW_STARTED audit event');
     await activityFns.logAuditEvent({
       caseId: state.caseid,
       event: 'WORKFLOW_STARTED',
@@ -176,22 +280,27 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
         createddate: state.createddate.toISOString()
       }
     });
+    wf.log.info('WORKFLOW_STARTED event logged successfully');
 
-    // === TASK 1: LogAudit → GetInbox → CreateWI → UpdateDataPool → Wait ===
+    // === TASK 1: GetInbox → CreateWI → UpdateDataPool → Wait ===
 
-    wf.log.info('[Task 1] Creating');
+    wf.log.info('========== TASK 1 CREATION ==========');
+    wf.log.info('[Task 1] Starting creation flow');
 
-    // Step 1: Log audit
-    await activityFns.logAuditEvent({
-      caseId: state.caseid,
-      event: 'TASK1_CREATING',
-      data: { casetype: state.casetype }
-    });
-
-    // Step 2: Get inbox config
+    // Step 1: Get inbox config
+    wf.log.info('[Task 1] Step 1: Getting inbox config for DEFAULT_TEMPLATE');
     const inboxConfig1 = await activityFns.getInboxConfig('DEFAULT_TEMPLATE');
+    wf.log.info('[Task 1] Inbox config retrieved:', inboxConfig1);
 
     // Step 3: Create work item with proper structure
+    wf.log.info('[Task 1] Step 3: Creating work item');
+    wf.log.info('[Task 1] Work item parameters:', {
+      workflowId: wf.workflowInfo().workflowId,
+      runId: wf.workflowInfo().runId,
+      taskType: 'user Task',
+      taskName: 'IK10100P1'
+    });
+
     const task1Result = await activityFns.createWorkItem({
       workflowId: wf.workflowInfo().workflowId,
       runId: wf.workflowInfo().runId,
@@ -218,24 +327,26 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
         }
       ],
       taskType: 'user Task',
-        taskName: 'IK10100P1',
-        assignmentSpec: {
-          candidatePositions: ['manager'],
-          strategy: 'OFFER_TO_ALL',
-          mode: 'PULL'
-        },
-        lifecycle: 'default',
-        initiatedBy: 'system',
-        initiatedAt: new Date(),
+      taskName: 'IK10100P1',
+      assignmentSpec: {
+        candidatePositions: ['manager'],
+        strategy: 'OFFER_TO_ALL',
+        mode: 'PULL'
+      },
+      lifecycle: 'default',
+      initiatedBy: 'system',
+      initiatedAt: new Date(),
       contextData: {
-        
+
         additionalInfo: 'Test work item'
       }
     });
 
     task1WorkItemId = task1Result.workItemId;
+    wf.log.info('[Task 1] Work item created successfully with ID:', { task1WorkItemId });
 
     // Step 4: Update datapool with workItemId and state
+    wf.log.info('[Task 1] Step 4: Updating datapool');
     await activityFns.updateDataPool({
       caseId: state.caseid,
       data: {
@@ -244,35 +355,49 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
         task1CreatedAt: new Date().toISOString()
       }
     });
+    wf.log.info('[Task 1] Datapool updated successfully');
 
     // Wait for Task 1 completion or control signals
-    wf.log.info('[Task 1] Waiting for completion...');
+    wf.log.info('[Task 1] Waiting for completion or control signals...');
+    wf.log.info('[Task 1] Current decision state:', { task1Decision: task1Decision || 'null' });
     await wf.condition(() => task1Decision !== null || requestedCancel || requestedClose);
 
+    wf.log.info('[Task 1] Wait condition satisfied');
+    wf.log.info('[Task 1] Final state:', { task1Decision, requestedCancel, requestedClose });
+
+    wf.log.info('========== CHECKING CONTROL SIGNALS ==========');
+
     if (requestedCancel) {
+      wf.log.info('Cancel signal detected - terminating workflow');
       state.casestate = CaseState.CANCELED;
       await activityFns.logAuditEvent({
         caseId: state.caseid,
         event: 'WORKFLOW_CANCELED',
-        data: { reason: 'User requested cancellation' }
+        data: { reason: 'User requested cancellation', canceledAt: new Date().toISOString() }
       });
+      wf.log.info('Workflow CANCELED');
       return;
     }
 
     if (requestedClose) {
+      wf.log.info('Close signal detected - closing workflow gracefully');
       state.casestate = CaseState.CLOSED;
       await activityFns.logAuditEvent({
         caseId: state.caseid,
         event: 'WORKFLOW_CLOSED',
-        data: { reason: 'User requested closure' }
+        data: { reason: 'User requested closure', closedAt: new Date().toISOString() }
       });
+      wf.log.info('Workflow CLOSED');
       return;
     }
 
     // === DECISION POINT ===
+    wf.log.info('========== DECISION POINT ==========');
+    wf.log.info('Routing decision:', { task1Decision });
 
     if (task1Decision === 'TASK2') {
-      wf.log.info('[Task 2] Creating');
+      wf.log.info('========== TASK 2 CREATION ==========');
+      wf.log.info('[Task 2] Route: Creating Task 2');
 
       // Step 1: Log audit
       await activityFns.logAuditEvent({
@@ -311,17 +436,17 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
           }
         ],
         taskType: 'user Task',
-          taskName: 'Ik10100P2',
-          assignmentSpec: {
-            candidatePositions: ['manager'],
-            strategy: 'OFFER_TO_ALL',
-            mode: 'PULL'
-          },
-          lifecycle: 'default',
-          initiatedBy: 'system',
-          initiatedAt: new Date(),
+        taskName: 'Ik10100P2',
+        assignmentSpec: {
+          candidatePositions: ['manager'],
+          strategy: 'OFFER_TO_ALL',
+          mode: 'PULL'
+        },
+        lifecycle: 'default',
+        initiatedBy: 'system',
+        initiatedAt: new Date(),
         contextData: {
-          
+
           additionalInfo: 'Test work item - Task 2'
         }
       });
@@ -355,7 +480,8 @@ export async function caseWorkflow(input: CaseWorkflowInput): Promise<void> {
       }
 
     } else if (task1Decision === 'SUBPROCESS') {
-      wf.log.info('[Subprocess] Starting');
+      wf.log.info('========== SUBPROCESS EXECUTION ==========');
+      wf.log.info('[Subprocess] Route: Starting subprocess workflow');
 
       // Start subprocess as child workflow
       await wf.executeChild(subprocessWorkflow, {
@@ -475,17 +601,17 @@ export async function subprocessWorkflow(input: {
       }
     ],
     taskType: 'user Task',
-      taskName: 'IK90400P1',
-      assignmentSpec: {
-        candidatePositions: ['manager'],
-        strategy: 'OFFER_TO_ALL',
-        mode: 'PULL'
-      },
-      lifecycle: 'default',
-      initiatedBy: 'system',
-      initiatedAt: new Date(),
+    taskName: 'IK90400P1',
+    assignmentSpec: {
+      candidatePositions: ['manager'],
+      strategy: 'OFFER_TO_ALL',
+      mode: 'PULL'
+    },
+    lifecycle: 'default',
+    initiatedBy: 'system',
+    initiatedAt: new Date(),
     contextData: {
-      
+
       additionalInfo: 'Subprocess work item',
       parentWorkflowId: input.parentWorkflowId
     }

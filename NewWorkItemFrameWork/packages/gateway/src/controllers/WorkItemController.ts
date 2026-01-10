@@ -21,9 +21,18 @@ export class WorkItemController {
                 workflowId
             );
 
-           return  res.json(result);
+            // Handle different statuses with appropriate HTTP codes
+            if (result.status === 'DUPLICATE') {
+                return res.status(409).json(result);  // 409 Conflict
+            }
+
+            if (result.status === 'IN_PROGRESS') {
+                return res.status(202).json(result);  // 202 Accepted
+            }
+
+            return res.json(result);
         } catch (error: any) {
-           return res.status(500).json({
+            return res.status(500).json({
                 error: error.message
             });
         }
@@ -46,6 +55,14 @@ export class WorkItemController {
                 workflowId,
                 output || []
             );
+
+            if (result.status === 'DUPLICATE') {
+                return res.status(409).json(result);
+            }
+
+            if (result.status === 'IN_PROGRESS') {
+                return res.status(202).json(result);
+            }
 
             res.json(result);
         } catch (error: any) {
@@ -153,7 +170,7 @@ export class WorkItemController {
             const result = await this.gateway.getAllWorkItems(args);
 
 
-           return  res.json({
+            return res.json({
                 ...result,
                 limit: limit ? Number(limit) : 20,
                 offset: offset ? Number(offset) : 0,

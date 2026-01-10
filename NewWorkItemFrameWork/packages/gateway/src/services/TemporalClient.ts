@@ -60,11 +60,26 @@ export class TemporalClient {
         const client = await this.connect();
         const timeout = timeoutMs || this.config.defaultTimeoutMs;
 
+        // DEBUG: Log what we're about to send to Temporal
+        console.log('[TEMPORAL-CLIENT-DEBUG] ========== BEFORE executeUpdate ==========');
+        console.log('[TEMPORAL-CLIENT-DEBUG] workflowId:', workflowId);
+        console.log('[TEMPORAL-CLIENT-DEBUG] workItemId:', workItemId);
+        console.log('[TEMPORAL-CLIENT-DEBUG] userId:', userId);
+        console.log('[TEMPORAL-CLIENT-DEBUG] idempotencyKey:', idempotencyKey);
+        console.log('[TEMPORAL-CLIENT-DEBUG] output (length):', output.length);
+        console.log('[TEMPORAL-CLIENT-DEBUG] output:', JSON.stringify(output, null, 2));
+
         return this.withTimeout(async () => {
             const handle = client.workflow.getHandle(workflowId);
 
             // Detect workflow type from workflow ID
             const updateName = workflowId.startsWith('case-') ? 'completeTask' : 'completeWorkItem';
+
+            console.log('[TEMPORAL-CLIENT-DEBUG] updateName:', updateName);
+            console.log('[TEMPORAL-CLIENT-DEBUG] Calling executeUpdate with args:', JSON.stringify({
+                args: [{ workItemId, userId, output }],
+                updateId: idempotencyKey
+            }, null, 2));
 
             return await handle.executeUpdate(updateName, {
                 args: [{ workItemId, userId, output }],

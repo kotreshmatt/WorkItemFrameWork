@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 
 export interface IdempotencyRecord {
     key: string;
+    businessKey?: string;  // NEW: For duplicate business operation detection
     requestId: string;
     status: string;
     request: any;
@@ -28,13 +29,33 @@ export class IdempotencyService {
         return result.rows[0];
     }
 
+    /**
+     * Get all idempotency records for a business key
+     * Ordered by created_at DESC (most recent first)
+     */
+    async getByBusinessKey(businessKey: string): Promise<any[]> {
+        const result = await this.pool.query(
+            `SELECT * FROM idempotency_keys 
+             WHERE business_key = $1 
+             ORDER BY created_at DESC`,
+            [businessKey]
+        );
+        return result.rows;
+    }
+
     async create(data: IdempotencyRecord) {
         await this.pool.query(
             `INSERT INTO idempotency_keys 
-       (key, request_id, status, request_payload, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
+       (key, business_key, request_id, status, request_payload, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        ON CONFLICT (key) DO NOTHING`,
-            [data.key, data.requestId, data.status, JSON.stringify(data.request)]
+            [
+                data.key,
+                data.businessKey || null,
+                data.requestId,
+                data.status,
+                JSON.stringify(data.request)
+            ]
         );
     }
 
@@ -46,6 +67,17 @@ export class IdempotencyService {
            completed_at = NOW()
        WHERE key = $1`,
             [key, JSON.stringify(response)]
+        );
+    }
+
+    async fail(key: string, error: any) {
+        await this.pool.query(
+            `UPDATE idempotency_keys 
+       SET status = 'FAILED', 
+           response_payload = $2,
+           completed_at = NOW()
+       WHERE key = $1`,
+            [key, JSON.stringify({ error: error.message || String(error) })]
         );
     }
 
