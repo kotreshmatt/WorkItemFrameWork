@@ -51,6 +51,7 @@
 
     // IMPORTANT: let these packages compile with their own tsconfig.json
     "packages/gateway/**",
-    "packages/temporal-workflows/**"
+    "packages/temporal-workflows/**",
+    "packages/demo-ui/**"
   ]
 }

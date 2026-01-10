@@ -1,5 +1,5 @@
 import { Client, Connection } from '@temporalio/client';
-import { workItemWorkflow } from './workitem.workflow';
+import { workItemWorkflow } from '../src/workflows/workitem.workflow';
 
 interface WorkflowStartConfig {
     temporalAddress?: string;
@@ -28,7 +28,7 @@ export class WorkflowClient {
      */
     async startWorkflow(caseId: string): Promise<{ workflowId: string; runId: string }> {
         const connection = await Connection.connect({
-            address: this.config.temporalAddress
+            address: this.config.temporalAddress || 'localhost:7233'
         });
 
         const client = new Client({ connection });
@@ -56,7 +56,7 @@ export class WorkflowClient {
      */
     async getWorkflowHandle(workflowId: string) {
         const connection = await Connection.connect({
-            address: this.config.temporalAddress
+            address: this.config.temporalAddress || 'localhost:7233'
         });
 
         const client = new Client({ connection });

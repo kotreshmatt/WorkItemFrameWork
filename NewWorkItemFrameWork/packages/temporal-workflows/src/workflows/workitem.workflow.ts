@@ -1,5 +1,5 @@
 import { defineUpdate, setHandler, condition, proxyActivities } from '@temporalio/workflow';
-import type * as activities from './activities';
+import type * as activities from '../activities';
 
 const { createWorkItem: createWorkItemActivity, callSDK } = proxyActivities<typeof activities>({
     startToCloseTimeout: '10 seconds',

@@ -24,10 +24,11 @@ export class WorkItemQueryService {
 
     async findByUser(userId: string) {
         const result = await this.pool.query(
-            `SELECT id, workflow_id, run_id, state, version, parameters, context as contextData, created_at
+            `SELECT id as workitem_id, workflow_id, run_id, state, version, task_type, task_name, priority,
+                    parameters, context, created_at
        FROM work_items 
        WHERE assignee_id = $1 
-       OR $1 = ANY(offered_to)
+       OR (offered_to IS NOT NULL AND offered_to ? $1)
        ORDER BY created_at DESC`,
             [userId]
         );
@@ -62,7 +63,7 @@ export class WorkItemQueryService {
         }
 
         if (filters?.userId) {
-            query += ` AND (assignee_id = $${paramIndex} OR $${paramIndex} = ANY(offered_to))`;
+            query += ` AND (assignee_id = $${paramIndex} OR (offered_to IS NOT NULL AND offered_to ? $${paramIndex}))`;
             params.push(filters.userId);
             paramIndex++;
         }
@@ -103,7 +104,7 @@ export class WorkItemQueryService {
         }
 
         if (filters?.userId) {
-            countQuery += ` AND (assignee_id = $${countIndex} OR $${countIndex} = ANY(offered_to))`;
+            countQuery += ` AND (assignee_id = $${countIndex} OR (offered_to IS NOT NULL AND offered_to ? $${countIndex}))`;
             countParams.push(filters.userId);
             countIndex++;
         }

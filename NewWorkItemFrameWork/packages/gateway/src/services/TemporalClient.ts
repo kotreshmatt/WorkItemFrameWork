@@ -38,7 +38,11 @@ export class TemporalClient {
 
         return this.withTimeout(async () => {
             const handle = client.workflow.getHandle(workflowId);
-            return await handle.executeUpdate('claimWorkItem', {
+
+            // Detect workflow type from workflow ID
+            const updateName = workflowId.startsWith('case-') ? 'claimTask' : 'claimWorkItem';
+
+            return await handle.executeUpdate(updateName, {
                 args: [{ workItemId, userId }],
                 updateId: idempotencyKey
             });
@@ -58,7 +62,11 @@ export class TemporalClient {
 
         return this.withTimeout(async () => {
             const handle = client.workflow.getHandle(workflowId);
-            return await handle.executeUpdate('completeWorkItem', {
+
+            // Detect workflow type from workflow ID
+            const updateName = workflowId.startsWith('case-') ? 'completeTask' : 'completeWorkItem';
+
+            return await handle.executeUpdate(updateName, {
                 args: [{ workItemId, userId, output }],
                 updateId: idempotencyKey
             });
@@ -78,7 +86,11 @@ export class TemporalClient {
 
         return this.withTimeout(async () => {
             const handle = client.workflow.getHandle(workflowId);
-            return await handle.executeUpdate('cancelWorkItem', {
+
+            // Detect workflow type from workflow ID
+            const updateName = workflowId.startsWith('case-') ? 'cancelTask' : 'cancelWorkItem';
+
+            return await handle.executeUpdate(updateName, {
                 args: [{ workItemId, userId, reason }],
                 updateId: idempotencyKey
             });

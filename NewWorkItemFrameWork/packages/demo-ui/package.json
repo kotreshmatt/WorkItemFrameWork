@@ -1,0 +1,17 @@
+{
+    "name": "demo-ui",
+    "version": "1.0.0",
+    "description": "Demo UI for WorkItem Framework",
+    "scripts": {
+        "serve": "npx http-server -p 8080 -c-1",
+        "workflow-server": "node workflow-server.js",
+        "start": "npm run workflow-server"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "cors": "^2.8.5"
+    },
+    "devDependencies": {
+        "http-server": "^14.1.1"
+    }
+}

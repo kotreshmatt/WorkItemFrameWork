@@ -2,6 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import { workItemRoutes } from './routes/workitem.routes';
+import externalRoutes from './routes/external.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -20,6 +21,7 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/workitems', workItemRoutes);
+app.use('/api', externalRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -27,5 +29,9 @@ app.use(errorHandler);
 app.listen(PORT, () => {
     console.log(`🚀 Gateway server running on port ${PORT}`);
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
-    console.log(`📍 API base: http://localhost:${PORT}/api/workitems`);
+    console.log(`📍 WorkItems API: http://localhost:${PORT}/api/workitems`);
+    console.log(`📍 DataPool API: http://localhost:${PORT}/api/datapool`);
+    console.log(`📍 AuditLog API: http://localhost:${PORT}/api/auditlog`);
+    console.log(`📍 InboxConfig API: http://localhost:${PORT}/api/inboxconfig`);
 });
+
